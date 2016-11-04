@@ -205,6 +205,10 @@ public final class Chess implements Serializable {
 		
 		int x = point.x;
 		int y = point.y;
+		if(x>=width || y>=height){
+			System.out.println("无效落子，该点" + point + "超出棋盘范围！");
+			return; // 无效
+		}
 		if (chessBoard[x][y] != 0) {
 			System.out.println("无效落子，该点" + point + "已有" + Player.values()[chessBoard[x][y]-1]);
 			return; // 无效

@@ -66,8 +66,15 @@ public class ChessConsole {
 		}else if(str.startsWith("chess ")){//重新定义大小
 			str=str.substring(6).trim();
 			int index=str.indexOf(',');
-			int x=Integer.parseInt(str.substring(0,index));
-			int y=Integer.parseInt(str.substring(index+1));
+			int x;
+			int y;
+			if(index<0){
+				x=Integer.parseInt(str);
+				y=x;
+			}else{
+				x=Integer.parseInt(str.substring(0,index));
+				y=Integer.parseInt(str.substring(index+1));
+			}
 			this.chess=new Chess(null,x,y);
 			initNew();
 			state();
@@ -132,8 +139,24 @@ public class ChessConsole {
 	}
 
 	private void initNew() {
-		chess.initGame(true, false);
-		state();
+		System.out.println("请选择：1. 执行先下 2. 执白后下 3.双人对局，请输入[1-3]:");
+		System.out.print("您的选择>");
+		try{
+			String line=reader.readLine();
+			int i=Integer.parseInt(line);
+			if(i==1){
+				chess.initGame(true, false);
+			}else if(i==2){
+				chess.initGame(false, true);
+			}else{
+				chess.initGame(true, true);
+			}
+			state();
+		}catch(IOException e){
+			throw new RuntimeException(e);
+		}catch(NumberFormatException e){
+			System.out.println(e.getMessage());
+		}
 	}
 
 	private void state() {
@@ -144,6 +167,7 @@ public class ChessConsole {
 			System.out.println("已落子:"+ chess.his.count()+(chess.isReviewMode()?"(复盘模式)":"")+"\t下一手:"+chess.getNext());
 		}
 	}
+
 	private void test(){
 		int[][] chessBoard=new int[chess.width][chess.height];
 		Pattern[] ps=chess.getPatterns();
