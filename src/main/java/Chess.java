@@ -13,27 +13,62 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Properties;
 
+/**
+ * 五子棋处理引擎
+ */
 public final class Chess implements Serializable {
 	private static final long serialVersionUID = 73329L;
 	private static final int IMPOSSIBLE = 7;
 
-	private transient Pattern[] PATTERN_POINTS;// 棋型 vs 坐标关联表(不变)
-	private transient int[][][] POINTS_PATTERN;// 坐标 vs 棋型关联表(不变)
-	transient int drawPossiable; // 在几步之后才开始平局检测，如果每次落子都检测平局影响速度，因此在落子达到一定数量后再开始检测平局。
+	/**
+	 * 记录所有的胜利棋形(棋盘确定后，胜利棋形固定不变)
+	 */
+	private transient Pattern[] PATTERN_POINTS;
+	/**
+	 * 记录每个点对应到的胜利棋形。(棋盘确定后，关联关系固定不变)
+	 * [n=1]X坐标 [n=2]Y坐标，该点关联的胜利棋形会有多个，因此是个数组
+	 */
+	private transient int[][][] POINTS_PATTERN;
+	/**
+	 * 平局检测：确定双方均无法完成胜利棋形时，即为平局。
+	 * 但如果从开始起就每步检测平局是没有必要的浪费，因此规定落子达到数量后，再开始检测平局。
+	 */
+	transient int drawPossiable;
+	/**
+	 * AI外部配置读入。 
+	 */
 	transient Properties properties;
+	/**
+	 * 是否打印出每步坐标
+	 */
 	transient boolean printStep;
+	/**
+	 * 界面的Panel
+	 */
 	transient ChessPanel panel;
 	private transient boolean autoMode = false;
 
+	/**
+	 * 棋盘宽
+	 */
 	int width;
+	/**
+	 * 棋盘高
+	 */
 	int height;
 
-	private int[][] chessBoard;
-	private int[][] patternProgress;
+	private int[][] chessBoard;      //记录盘面。
+	private int[][] patternProgress;//记录两个玩家各自的棋形完成度，[n=1]两个玩家 [n=2]胜利棋形编号。用于盘面分值评估。
 	Player next = Player.BLACK; // 轮到
 	Player winner = null; // 赢家
 	History his = new History();
 
+	/**
+	 * 根据棋盘大小构造棋局 
+	 * @param p 
+	 * @param width 宽度
+	 * @param height 高度
+	 */
 	public Chess(ChessPanel p, int width, int height) {
 		this.panel = p;
 		resetSize(width, height);
@@ -41,6 +76,10 @@ public final class Chess implements Serializable {
 		loadConfig();
 	}
 
+	/**
+	 * 下一个轮到谁 
+	 * @return
+	 */
 	public Player getNext() {
 		if(isReviewMode()){
 			return his.reviewIndex%2==0?Player.WHITE:Player.BLACK;
@@ -152,6 +191,10 @@ public final class Chess implements Serializable {
 		printStep = "true".equalsIgnoreCase(this.properties.getProperty("print"));
 	}
 
+	/**
+	 * 在指定位置落子
+	 * @param point
+	 */
 	public synchronized void doMove(Point point) {
 		if (isReviewMode()) {
 			reviewNext();
@@ -163,7 +206,7 @@ public final class Chess implements Serializable {
 		int x = point.x;
 		int y = point.y;
 		if (chessBoard[x][y] != 0) {
-			System.out.println("无效落子，改点" + point + "已有" + chessBoard[x][y]);
+			System.out.println("无效落子，该点" + point + "已有" + Player.values()[chessBoard[x][y]-1]);
 			return; // 无效
 		}
 		if (printStep) {
@@ -174,7 +217,7 @@ public final class Chess implements Serializable {
 		Player opp = player.getOpp();
 		this.next = opp;
 		this.chessBoard[x][y] = player.color();// 落子
-
+		//落子后的盘面判定
 		for (int i : POINTS_PATTERN[x][y]) {
 			if (patternProgress[player.ordinal()][i] != IMPOSSIBLE) {
 				this.patternProgress[player.ordinal()][i]++; // 该状态下棋型达成度+1
@@ -262,6 +305,9 @@ public final class Chess implements Serializable {
 		}
 	}
 
+	/**
+	 * 自动下一步
+	 */
 	public synchronized void computerMove() {
 		if (isReviewMode()) {
 			reviewNext();
@@ -330,10 +376,22 @@ public final class Chess implements Serializable {
 		return new AI.Default(this);
 	}
 
+	/**
+	 * 得到指定点产生关联的胜利棋形
+	 * @param x 坐标x
+	 * @param y 坐标y
+	 * @return 关联的所有棋形编号
+	 */
 	public int[] getPointToPattern(int x, int y) {
 		return POINTS_PATTERN[x][y];
 	}
 
+	/**
+	 * 得到玩家在这个棋形上的完成度
+	 * @param player 玩家
+	 * @param patternId 棋形
+	 * @return 棋形完成度
+	 */
 	public int getPatternScore(Player player, int patternId) {
 		return patternProgress[player.ordinal()][patternId];
 	}
@@ -593,9 +651,12 @@ class IntList {
 		}
 	}
 }
-
+/**
+ * 胜利棋形，包含五个点
+ * @author jiyi
+ *
+ */
 class Pattern {
-
 	Pattern(int id) {
 		this.id = id;
 	}
@@ -656,6 +717,7 @@ enum Player {
 	}
 }
 
+@SuppressWarnings("serial")
 class History implements Serializable {
 	private List<Point> steps = new ArrayList<Point>(128);
 	private Player last = null;
@@ -772,6 +834,10 @@ class History implements Serializable {
 		return p;
 	}
 
+	/**
+	 * 得到上一手的玩家
+	 * @return
+	 */
 	public Player getLastPlayer() {
 		if (reviewIndex >= 0) {
 			return reviewIndex % 2 == 0 ? Player.BLACK : Player.WHITE;
