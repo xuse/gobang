@@ -562,24 +562,23 @@ class ChessPanel extends JPanel {
 		Point[] winPts = chess.getWinPoints();
 		if (winPts == null) return;
 
-		// 棋子图片绘制起点是 i*30+31，尺寸约27px，中心约 i*30+44
-		// 高亮圆圈和连线都对齐到棋子中心
+		// 以交叉点坐标 (i*30+50, j*30+50) 为棋子视觉中心
+		int r = 14; // 高亮圆半径
 		Composite oldComp = g.getComposite();
 		g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.3f));
 		g.setColor(WIN_LINE_COLOR);
 		for (Point p : winPts) {
-			g.fillOval(p.x * 30 + 31, p.y * 30 + 31, 27, 27);
+			g.fillOval(p.x * 30 + 50 - r, p.y * 30 + 50 - r, r * 2, r * 2);
 		}
 		g.setComposite(oldComp);
 
-		// 连线：对齐到棋子中心 (i*30+44, j*30+44)
+		// 连线贯穿首尾棋子中心
 		Stroke oldStroke = g.getStroke();
 		g.setStroke(new BasicStroke(3.0f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
 		g.setColor(WIN_LINE_COLOR);
 		Point first = winPts[0], last = winPts[4];
-		int cx = 44, cy = 44; // 棋子中心偏移 = 31 + 27/2
-		g.drawLine(first.x * 30 + cx, first.y * 30 + cy,
-				last.x * 30 + cx, last.y * 30 + cy);
+		g.drawLine(first.x * 30 + 50, first.y * 30 + 50,
+				last.x * 30 + 50, last.y * 30 + 50);
 		g.setStroke(oldStroke);
 	}
 
