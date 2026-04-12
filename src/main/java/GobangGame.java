@@ -367,6 +367,15 @@ class ChessPanel extends JPanel {
 		});
 
 		addMouseListener(new MouseAdapter() {
+			// 记录按下位置，用于判断是否为短距离拖拽（视为点击）
+			private int pressX, pressY;
+			private static final int CLICK_TOLERANCE = 10; // 像素
+
+			public void mousePressed(MouseEvent e) {
+				pressX = e.getX();
+				pressY = e.getY();
+			}
+
 			public void mouseExited(MouseEvent e) {
 				if (hoverX != -1) {
 					hoverX = -1;
@@ -375,7 +384,12 @@ class ChessPanel extends JPanel {
 				}
 			}
 
-			public void mouseClicked(MouseEvent e) {
+			public void mouseReleased(MouseEvent e) {
+				// 移动距离超过阈值视为拖拽，忽略
+				int dx = e.getX() - pressX;
+				int dy = e.getY() - pressY;
+				if (dx * dx + dy * dy > CLICK_TOLERANCE * CLICK_TOLERANCE) return;
+
 				if (chess.isAutoRunning()) {
 					chess.next.human = true;
 					return;
@@ -548,23 +562,24 @@ class ChessPanel extends JPanel {
 		Point[] winPts = chess.getWinPoints();
 		if (winPts == null) return;
 
-		// 高亮五个棋子位置
+		// 棋子图片绘制起点是 i*30+31，尺寸约27px，中心约 i*30+44
+		// 高亮圆圈和连线都对齐到棋子中心
 		Composite oldComp = g.getComposite();
 		g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.3f));
 		g.setColor(WIN_LINE_COLOR);
 		for (Point p : winPts) {
-			g.fillOval(p.x * 30 + 31, p.y * 30 + 31, 26, 26);
+			g.fillOval(p.x * 30 + 31, p.y * 30 + 31, 27, 27);
 		}
 		g.setComposite(oldComp);
 
-		// 画连线
+		// 连线：对齐到棋子中心 (i*30+44, j*30+44)
 		Stroke oldStroke = g.getStroke();
 		g.setStroke(new BasicStroke(3.0f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
 		g.setColor(WIN_LINE_COLOR);
 		Point first = winPts[0], last = winPts[4];
-		int x1 = first.x * 30 + 50, y1 = first.y * 30 + 50;
-		int x2 = last.x * 30 + 50, y2 = last.y * 30 + 50;
-		g.drawLine(x1, y1, x2, y2);
+		int cx = 44, cy = 44; // 棋子中心偏移 = 31 + 27/2
+		g.drawLine(first.x * 30 + cx, first.y * 30 + cy,
+				last.x * 30 + cx, last.y * 30 + cy);
 		g.setStroke(oldStroke);
 	}
 
