@@ -352,6 +352,26 @@ public final class Chess implements Serializable {
 		computerMove();
 	}
 
+	/**
+	 * 使用指定AI类初始化游戏（用于UI难度选择）
+	 */
+	public void initGame(boolean blackHuman, boolean whiteHuman, Class<? extends AI> aiClass) {
+		if (blackHuman) {
+			Player.BLACK.setAi(null);
+		} else {
+			Player.BLACK.setAi(createAI(aiClass));
+		}
+		if (whiteHuman) {
+			Player.WHITE.setAi(null);
+		} else {
+			Player.WHITE.setAi(createAI(aiClass));
+		}
+		initGameInternal();
+		if (!next.isHuman()) {
+			computerMove();
+		}
+	}
+
 	public void initGame(boolean blackHuman, boolean whiteHuman) {
 		if (blackHuman) {
 			Player.BLACK.setAi(null);
@@ -363,6 +383,13 @@ public final class Chess implements Serializable {
 		} else {
 			Player.WHITE.setAi(createAI(Player.WHITE));
 		}
+		initGameInternal();
+		if (!next.isHuman()) {
+			computerMove();
+		}
+	}
+
+	private void initGameInternal() {
 		this.winner = null;
 		his.clear();
 		this.next = Player.BLACK;
@@ -375,9 +402,6 @@ public final class Chess implements Serializable {
 			for (int j = 0; j < PATTERN_POINTS.length; j++)
 				this.patternProgress[i][j] = 0;
 		}
-		if (!next.isHuman()) {
-			computerMove();
-		}
 	}
 
 	AI createAI(Player p) {
@@ -388,6 +412,16 @@ public final class Chess implements Serializable {
 				Constructor<?> c = clz.getConstructor(Chess.class);
 				return (AI) c.newInstance(this);
 			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return new AI.Default(this);
+	}
+
+	AI createAI(Class<? extends AI> clz) {
+		try {
+			Constructor<? extends AI> c = clz.getConstructor(Chess.class);
+			return c.newInstance(this);
 		} catch (Exception e) {
 			e.printStackTrace();
 		}

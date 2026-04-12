@@ -73,17 +73,40 @@ public class GobangGame {
 			JMenu m_review = new JMenu("复盘");
 			JMenu m_help = new JMenu("帮助");
 			panel.reviewMenu = m_review;
+			// AI难度选项
+			final String[] diffNames = {"简单", "中等", "困难"};
+			final Class<?>[] diffClasses = {AI.Default.class, SmartEvalAI.class, SmartSearchAI.class};
+			final int[] selectedDiff = {2}; // 默认困难
+
+			JMenu m_diff = new JMenu("AI难度");
+			javax.swing.ButtonGroup diffGroup = new javax.swing.ButtonGroup();
+			for (int d = 0; d < diffNames.length; d++) {
+				final int idx = d;
+				javax.swing.JRadioButtonMenuItem item = new javax.swing.JRadioButtonMenuItem(diffNames[d], d == selectedDiff[0]);
+				item.addActionListener(new ActionListener() {
+					public void actionPerformed(ActionEvent e) {
+						selectedDiff[0] = idx;
+					}
+				});
+				diffGroup.add(item);
+				m_diff.add(item);
+			}
+
 			m_main.add(new JMenuItem("开始游戏(执黑)")).addActionListener(new ActionListener() {
+				@SuppressWarnings("unchecked")
 				public void actionPerformed(ActionEvent e) {
-					panel.chess.initGame(true, false);
+					panel.aiDiffName = diffNames[selectedDiff[0]];
+					panel.chess.initGame(true, false, (Class<? extends AI>) diffClasses[selectedDiff[0]]);
 					panel.resetIdleTimer();
 					panel.repaint();
 				}
 			});
 
 			m_main.add(new JMenuItem("开始游戏(执白)")).addActionListener(new ActionListener() {
+				@SuppressWarnings("unchecked")
 				public void actionPerformed(ActionEvent e) {
-					panel.chess.initGame(false, true);
+					panel.aiDiffName = diffNames[selectedDiff[0]];
+					panel.chess.initGame(false, true, (Class<? extends AI>) diffClasses[selectedDiff[0]]);
 					panel.resetIdleTimer();
 					panel.repaint();
 				}
@@ -91,6 +114,7 @@ public class GobangGame {
 
 			m_main.add(new JMenuItem("开始游戏(自动)")).addActionListener(new ActionListener() {
 				public void actionPerformed(ActionEvent e) {
+					panel.aiDiffName = null;
 					panel.chess.initGame(false, false);
 					panel.stopIdleTimer();
 					panel.repaint();
@@ -99,6 +123,7 @@ public class GobangGame {
 			});
 			m_main.add(new JMenuItem("开始游戏(双人对局)")).addActionListener(new ActionListener() {
 				public void actionPerformed(ActionEvent e) {
+					panel.aiDiffName = null;
 					panel.chess.initGame(true, true);
 					panel.resetIdleTimer();
 					panel.repaint();
@@ -249,6 +274,7 @@ public class GobangGame {
 				}
 			});
 			menuBar.add(m_main);
+			menuBar.add(m_diff);
 			menuBar.add(m_auto);
 			menuBar.add(m_his);
 			menuBar.add(m_review);
@@ -285,6 +311,7 @@ class ChessPanel extends JPanel {
 
 	JMenu reviewMenu;
 	Chess chess;
+	String aiDiffName = "困难"; // 当前AI难度名称，用于状态栏显示
 
 	// 等待提醒计时器：30秒无操作提醒一次
 	private Timer idleTimer;
@@ -504,7 +531,11 @@ class ChessPanel extends JPanel {
 
 			// 右侧信息
 			String info = "第 " + chess.his.count() + " 手";
-			if (chess.isReviewMode()) info += "  ▶ 复盘中";
+			if (chess.isReviewMode()) {
+				info += "  ▶ 复盘中";
+			} else if (aiDiffName != null) {
+				info += "  [" + aiDiffName + "]";
+			}
 			g.setColor(STATUS_TEXT_DIM);
 			int infoW = fm.stringWidth(info);
 			g.drawString(info, panelW - 14 - infoW, textY);
