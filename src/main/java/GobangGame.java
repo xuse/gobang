@@ -351,11 +351,10 @@ class ChessPanel extends JPanel {
 						chess.reviewNext();
 					}
 					ChessPanel.this.repaint();
-				} else if (chess.next != null) {
-					int oldx = e.getX();
-					int oldy = e.getY();
-					int bx = (oldx - 33) / 30;
-					int by = (oldy - 33) / 30;
+				} else if (e.getButton() == MouseEvent.BUTTON1 && chess.next != null) {
+					// 将点击坐标四舍五入到最近的交叉点
+					int bx = Math.round((e.getX() - 50) / 30.0f);
+					int by = Math.round((e.getY() - 50) / 30.0f);
 					if (bx >= 0 && bx < chess.width && by >= 0 && by < chess.height)
 						if (chess.getTable()[bx][by] == 0) {
 							chess.doMove(new Point(bx, by));
