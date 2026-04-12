@@ -142,30 +142,24 @@ public class GobangGame {
 			});
 			m_main.add(new JMenuItem("重定义棋盘大小")).addActionListener(new ActionListener() {
 				public void actionPerformed(ActionEvent e) {
-					String str = JOptionPane.showInputDialog(panel, "请输入 '宽x高'");
-					int index = str == null ? 0 : str.indexOf('x');
-					if (index > 0) {
-						int x = Integer.parseInt(str.substring(0, index));
-						int y = Integer.parseInt(str.substring(index + 1));
-						int size = x * y;
-						if (x < 0 || y < 0) {
-							JOptionPane.showMessageDialog(panel, "请不要输入负数。");
-							return;
-						} else if (size < 25) {
-							JOptionPane.showMessageDialog(panel, "棋盘太小，无意义。");
-							return;
-						} else if (size > 10000) {
-							JOptionPane.showMessageDialog(panel, "棋盘太大，不支持。");
-							return;
-						}
-						panel.chess.resetSize(x, y);
-						int widthPx = (x - 1) * 30 + 100;
-						int heightPx = (y - 1) * 30 + 130;
-						setSize(widthPx, heightPx);
-						panel.chess.initGame(true, false);
-						panel.resetIdleTimer();
-						panel.repaint();
-					}
+					javax.swing.JSpinner spW = new javax.swing.JSpinner(new javax.swing.SpinnerNumberModel(panel.chess.width, 5, 36, 1));
+					javax.swing.JSpinner spH = new javax.swing.JSpinner(new javax.swing.SpinnerNumberModel(panel.chess.height, 5, 36, 1));
+					JPanel p = new JPanel(new java.awt.GridLayout(2, 2, 8, 6));
+					p.add(new javax.swing.JLabel("宽 (5-36)："));
+					p.add(spW);
+					p.add(new javax.swing.JLabel("高 (5-36)："));
+					p.add(spH);
+					int result = JOptionPane.showConfirmDialog(panel, p, "重定义棋盘大小", JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
+					if (result != JOptionPane.OK_OPTION) return;
+					int x = (Integer) spW.getValue();
+					int y = (Integer) spH.getValue();
+					panel.chess.resetSize(x, y);
+					int widthPx = (x - 1) * 30 + 100;
+					int heightPx = (y - 1) * 30 + 130;
+					setSize(widthPx, heightPx);
+					panel.chess.initGame(true, false);
+					panel.resetIdleTimer();
+					panel.repaint();
 				}
 			});
 			m_main.addSeparator();
