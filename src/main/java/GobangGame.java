@@ -84,8 +84,19 @@ public class GobangGame {
 				final int idx = d;
 				javax.swing.JRadioButtonMenuItem item = new javax.swing.JRadioButtonMenuItem(diffNames[d], d == selectedDiff[0]);
 				item.addActionListener(new ActionListener() {
+					@SuppressWarnings("unchecked")
 					public void actionPerformed(ActionEvent e) {
 						selectedDiff[0] = idx;
+						panel.aiDiffName = diffNames[idx];
+						// 实时替换对局中电脑方的AI
+						Class<? extends AI> clz = (Class<? extends AI>) diffClasses[idx];
+						for (Player p : Player.values()) {
+							if (!p.isHuman() && p.getAi() != null) {
+								p.setAi(panel.chess.createAI(clz));
+								p.human = false;
+							}
+						}
+						panel.repaint();
 					}
 				});
 				diffGroup.add(item);
