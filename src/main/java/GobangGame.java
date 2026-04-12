@@ -1,4 +1,7 @@
+import java.awt.AlphaComposite;
+import java.awt.BasicStroke;
 import java.awt.Color;
+import java.awt.Composite;
 import java.awt.Container;
 import java.awt.Cursor;
 import java.awt.Font;
@@ -8,10 +11,12 @@ import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.Point;
 import java.awt.RenderingHints;
+import java.awt.Stroke;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.awt.event.MouseMotionAdapter;
 import java.io.File;
 import java.net.URL;
 
@@ -33,7 +38,7 @@ import javax.swing.UIManager;
  * @author Joey
  */
 public class GobangGame {
-	private static final String GAME_VERSION_STR = "五子棋游戏 版本1.15";
+	private static final String GAME_VERSION_STR = "五子棋游戏 版本1.16";
 
 	public static void main(String[] args) {
 		try {
@@ -42,6 +47,7 @@ public class GobangGame {
 		}
 		GameFrame game = new GameFrame();
 		game.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+		game.setLocationRelativeTo(null);
 		game.setVisible(true);
 	}
 
@@ -55,7 +61,7 @@ public class GobangGame {
 
 			final ChessPanel panel = new ChessPanel(width, height);
 
-			panel.setBackground(new Color(222, 184, 135)); // 木色棋盘
+			panel.setBackground(new Color(222, 184, 135));
 			contentPane.setBackground(new Color(180, 140, 100));
 			contentPane.add(panel);
 
@@ -73,10 +79,11 @@ public class GobangGame {
 			JMenu m_review = new JMenu("复盘");
 			JMenu m_help = new JMenu("帮助");
 			panel.reviewMenu = m_review;
+
 			// AI难度选项
 			final String[] diffNames = {"简单", "中等", "困难"};
 			final Class<?>[] diffClasses = {AI.Default.class, SmartEvalAI.class, SmartSearchAI.class};
-			final int[] selectedDiff = {2}; // 默认困难
+			final int[] selectedDiff = {0};
 
 			JMenu m_diff = new JMenu("AI难度");
 			javax.swing.ButtonGroup diffGroup = new javax.swing.ButtonGroup();
@@ -88,7 +95,6 @@ public class GobangGame {
 					public void actionPerformed(ActionEvent e) {
 						selectedDiff[0] = idx;
 						panel.aiDiffName = diffNames[idx];
-						// 实时替换对局中电脑方的AI
 						Class<? extends AI> clz = (Class<? extends AI>) diffClasses[idx];
 						for (Player p : Player.values()) {
 							if (!p.isHuman() && p.getAi() != null) {
@@ -106,6 +112,7 @@ public class GobangGame {
 			m_main.add(new JMenuItem("开始游戏(执黑)")).addActionListener(new ActionListener() {
 				@SuppressWarnings("unchecked")
 				public void actionPerformed(ActionEvent e) {
+					if (!panel.confirmNewGame()) return;
 					panel.aiDiffName = diffNames[selectedDiff[0]];
 					panel.chess.initGame(true, false, (Class<? extends AI>) diffClasses[selectedDiff[0]]);
 					panel.resetIdleTimer();
@@ -116,6 +123,7 @@ public class GobangGame {
 			m_main.add(new JMenuItem("开始游戏(执白)")).addActionListener(new ActionListener() {
 				@SuppressWarnings("unchecked")
 				public void actionPerformed(ActionEvent e) {
+					if (!panel.confirmNewGame()) return;
 					panel.aiDiffName = diffNames[selectedDiff[0]];
 					panel.chess.initGame(false, true, (Class<? extends AI>) diffClasses[selectedDiff[0]]);
 					panel.resetIdleTimer();
@@ -125,6 +133,7 @@ public class GobangGame {
 
 			m_main.add(new JMenuItem("开始游戏(自动)")).addActionListener(new ActionListener() {
 				public void actionPerformed(ActionEvent e) {
+					if (!panel.confirmNewGame()) return;
 					panel.aiDiffName = null;
 					panel.chess.initGame(false, false);
 					panel.stopIdleTimer();
@@ -134,6 +143,7 @@ public class GobangGame {
 			});
 			m_main.add(new JMenuItem("开始游戏(双人对局)")).addActionListener(new ActionListener() {
 				public void actionPerformed(ActionEvent e) {
+					if (!panel.confirmNewGame()) return;
 					panel.aiDiffName = null;
 					panel.chess.initGame(true, true);
 					panel.resetIdleTimer();
@@ -263,7 +273,6 @@ public class GobangGame {
 				}
 			});
 
-			// 音效开关
 			JCheckBoxMenuItem soundToggle = new JCheckBoxMenuItem("音效", SoundManager.isEnabled());
 			soundToggle.addActionListener(new ActionListener() {
 				public void actionPerformed(ActionEvent e) {
@@ -294,13 +303,11 @@ public class GobangGame {
 class ChessPanel extends JPanel {
 	private static final long serialVersionUID = -4677980500938864107L;
 
-	// 棋子图片
 	private final ImageIcon blackChess;
 	private final ImageIcon whiteChess;
 	private final ImageIcon whiteCurrent;
 	private final ImageIcon blackCurrent;
 
-	// 状态栏配色
 	private static final Color STATUS_BG_PLAYING = new Color(50, 50, 50);
 	private static final Color STATUS_BG_WIN = new Color(0, 120, 60);
 	private static final Color STATUS_BG_LOSE = new Color(160, 40, 40);
@@ -310,15 +317,18 @@ class ChessPanel extends JPanel {
 	private static final Color STATUS_TEXT_DIM = new Color(180, 180, 180);
 	private static final Color BOARD_LINE = new Color(60, 40, 20);
 	private static final Color COORD_COLOR = new Color(100, 70, 40);
+	private static final Color WIN_LINE_COLOR = new Color(220, 40, 40, 200);
 	private static final Font STATUS_FONT = new Font("微软雅黑", Font.BOLD, 14);
 	private static final Font COORD_FONT = new Font("Consolas", Font.PLAIN, 11);
 	private static final int STATUS_H = 32;
 
 	JMenu reviewMenu;
 	Chess chess;
-	String aiDiffName = "困难"; // 当前AI难度名称，用于状态栏显示
+	String aiDiffName = "困难";
 
-	// 等待提醒计时器：30秒无操作提醒一次
+	// 鼠标悬停位置（棋盘坐标），-1表示无效
+	private int hoverX = -1, hoverY = -1;
+
 	private Timer idleTimer;
 	private static final int IDLE_TIMEOUT = 30_000;
 
@@ -331,7 +341,6 @@ class ChessPanel extends JPanel {
 		chess = new Chess(this, x, y);
 		chess.initGame(true, false);
 
-		// 等待提醒计时器
 		idleTimer = new Timer(IDLE_TIMEOUT, e -> {
 			if (chess.getNext() != null && chess.getNext().isHuman() && !chess.isReviewMode()) {
 				SoundManager.playReminder();
@@ -340,11 +349,52 @@ class ChessPanel extends JPanel {
 		idleTimer.setRepeats(true);
 		idleTimer.start();
 
+		// 鼠标悬停追踪
+		addMouseMotionListener(new MouseMotionAdapter() {
+			public void mouseMoved(MouseEvent e) {
+				int newX = Math.round((e.getX() - 50) / 30.0f);
+				int newY = Math.round((e.getY() - 50) / 30.0f);
+				if (newX < 0 || newX >= chess.width || newY < 0 || newY >= chess.height) {
+					newX = -1;
+					newY = -1;
+				}
+				if (newX != hoverX || newY != hoverY) {
+					hoverX = newX;
+					hoverY = newY;
+					repaint();
+				}
+			}
+		});
+
 		addMouseListener(new MouseAdapter() {
+			public void mouseExited(MouseEvent e) {
+				if (hoverX != -1) {
+					hoverX = -1;
+					hoverY = -1;
+					repaint();
+				}
+			}
+
 			public void mouseClicked(MouseEvent e) {
 				if (chess.isAutoRunning()) {
 					chess.next.human = true;
-				} else if (chess.isReviewMode()) {
+					return;
+				}
+
+				// 游戏结束后点击：提示重新开始
+				if (chess.getNext() == null && !chess.isReviewMode()) {
+					int result = JOptionPane.showConfirmDialog(ChessPanel.this,
+							"游戏已结束，是否重新开始？", "重新开始",
+							JOptionPane.YES_NO_OPTION);
+					if (result == JOptionPane.YES_OPTION) {
+						chess.initGame(true, false);
+						resetIdleTimer();
+						repaint();
+					}
+					return;
+				}
+
+				if (chess.isReviewMode()) {
 					if (e.getButton() == MouseEvent.BUTTON3) {
 						chess.reviewPrev();
 					} else {
@@ -352,7 +402,6 @@ class ChessPanel extends JPanel {
 					}
 					ChessPanel.this.repaint();
 				} else if (e.getButton() == MouseEvent.BUTTON1 && chess.next != null) {
-					// 将点击坐标四舍五入到最近的交叉点
 					int bx = Math.round((e.getX() - 50) / 30.0f);
 					int by = Math.round((e.getY() - 50) / 30.0f);
 					if (bx >= 0 && bx < chess.width && by >= 0 && by < chess.height)
@@ -372,7 +421,17 @@ class ChessPanel extends JPanel {
 		});
 	}
 
-	/** 检查游戏是否结束并播放对应音效 */
+	/** 对局进行中时，开始新游戏前确认 */
+	boolean confirmNewGame() {
+		if (chess.getNext() != null && chess.his.count() > 0 && !chess.isReviewMode()) {
+			int result = JOptionPane.showConfirmDialog(this,
+					"当前对局尚未结束，确定要开始新游戏吗？", "确认",
+					JOptionPane.YES_NO_OPTION);
+			return result == JOptionPane.YES_OPTION;
+		}
+		return true;
+	}
+
 	void checkGameOver() {
 		if (chess.getNext() == null) {
 			stopIdleTimer();
@@ -386,13 +445,8 @@ class ChessPanel extends JPanel {
 		}
 	}
 
-	void resetIdleTimer() {
-		idleTimer.restart();
-	}
-
-	void stopIdleTimer() {
-		idleTimer.stop();
-	}
+	void resetIdleTimer() { idleTimer.restart(); }
+	void stopIdleTimer() { idleTimer.stop(); }
 
 	private ImageIcon loadIcon(String path) {
 		URL url = GobangGame.class.getResource(path);
@@ -410,51 +464,42 @@ class ChessPanel extends JPanel {
 		int widthPx = (bw - 1) * 30 + 50;
 		int heightPx = (bh - 1) * 30 + 50;
 
-		// 绘制棋盘线
+		// 棋盘线
 		g.setColor(BOARD_LINE);
-		for (int j = 0; j < bh; j++) {
+		for (int j = 0; j < bh; j++)
 			g.drawLine(50, 50 + j * 30, widthPx, 50 + j * 30);
-		}
-		for (int j = 0; j < bw; j++) {
+		for (int j = 0; j < bw; j++)
 			g.drawLine(50 + j * 30, 50, 50 + j * 30, heightPx);
-		}
 
-		// 星位点（如果棋盘够大）
+		// 星位点
 		if (bw >= 13 && bh >= 13) {
-			int cx = bw / 2, cy = bh / 2;
-			int d3 = 3;
-			int[][] stars = {{cx, cy}, {d3, d3}, {bw - 1 - d3, d3}, {d3, bh - 1 - d3}, {bw - 1 - d3, bh - 1 - d3}};
+			int cx = bw / 2, cy = bh / 2, d3 = 3;
+			int[][] stars = {{cx, cy}, {d3, d3}, {bw-1-d3, d3}, {d3, bh-1-d3}, {bw-1-d3, bh-1-d3}};
 			for (int[] s : stars) {
-				if (s[0] >= 0 && s[0] < bw && s[1] >= 0 && s[1] < bh) {
+				if (s[0] >= 0 && s[0] < bw && s[1] >= 0 && s[1] < bh)
 					g.fillOval(50 + s[0] * 30 - 3, 50 + s[1] * 30 - 3, 7, 7);
-				}
 			}
 		}
 
-		// 坐标标注
+		// 坐标
 		g.setFont(COORD_FONT);
 		g.setColor(COORD_COLOR);
+		FontMetrics cfm = g.getFontMetrics();
 		for (int i = 0; i < bw; i++) {
 			String num = Integer.toString(i);
-			FontMetrics fm = g.getFontMetrics();
-			int tw = fm.stringWidth(num);
-			g.drawString(num, 50 + 30 * i - tw / 2, 44);
+			g.drawString(num, 50 + 30 * i - cfm.stringWidth(num) / 2, 44);
 		}
-		for (int i = 1; i < bh; i++) {
-			String num = Integer.toString(i);
-			g.drawString(num, 33, 54 + 30 * i);
-		}
+		for (int i = 1; i < bh; i++)
+			g.drawString(Integer.toString(i), 33, 54 + 30 * i);
 
-		// 绘制棋子
 		drawPieces(g);
-
-		// 绘制状态栏
+		drawHoverPreview(g);
+		drawWinLine(g);
 		drawStatusBar(g);
 	}
 
 	private void drawPieces(Graphics2D g) {
-		int bw = chess.width;
-		int bh = chess.height;
+		int bw = chess.width, bh = chess.height;
 		int[][] board = chess.getTable();
 
 		for (int i = 0; i < bw; i++) {
@@ -469,7 +514,6 @@ class ChessPanel extends JPanel {
 			}
 		}
 
-		// 最后一手高亮
 		Point p = chess.his.getLast();
 		if (p != null) {
 			ImageIcon icon = chess.his.getLastPlayer() == Player.WHITE ? whiteCurrent : blackCurrent;
@@ -482,10 +526,51 @@ class ChessPanel extends JPanel {
 		}
 	}
 
+	/** 鼠标悬停时绘制半透明预影棋子 */
+	private void drawHoverPreview(Graphics2D g) {
+		if (hoverX < 0 || chess.getNext() == null || chess.isReviewMode()) return;
+		if (!chess.getNext().isHuman()) return;
+		if (chess.getTable()[hoverX][hoverY] != 0) return;
+
+		Composite oldComp = g.getComposite();
+		g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.35f));
+
+		int px = hoverX * 30 + 31, py = hoverY * 30 + 31;
+		ImageIcon icon = chess.getNext() == Player.BLACK ? blackChess : whiteChess;
+		g.drawImage(icon.getImage(), px, py,
+				icon.getIconWidth() - 3, icon.getIconHeight() - 3, this);
+
+		g.setComposite(oldComp);
+	}
+
+	/** 胜利时绘制连线高亮 */
+	private void drawWinLine(Graphics2D g) {
+		Point[] winPts = chess.getWinPoints();
+		if (winPts == null) return;
+
+		// 高亮五个棋子位置
+		Composite oldComp = g.getComposite();
+		g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.3f));
+		g.setColor(WIN_LINE_COLOR);
+		for (Point p : winPts) {
+			g.fillOval(p.x * 30 + 31, p.y * 30 + 31, 26, 26);
+		}
+		g.setComposite(oldComp);
+
+		// 画连线
+		Stroke oldStroke = g.getStroke();
+		g.setStroke(new BasicStroke(3.0f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+		g.setColor(WIN_LINE_COLOR);
+		Point first = winPts[0], last = winPts[4];
+		int x1 = first.x * 30 + 50, y1 = first.y * 30 + 50;
+		int x2 = last.x * 30 + 50, y2 = last.y * 30 + 50;
+		g.drawLine(x1, y1, x2, y2);
+		g.setStroke(oldStroke);
+	}
+
 	private void drawStatusBar(Graphics2D g) {
 		int panelW = getWidth();
 
-		// 背景
 		Color bgColor;
 		if (chess.getNext() == null) {
 			if (chess.winner == null) bgColor = STATUS_BG_DRAW;
@@ -497,7 +582,6 @@ class ChessPanel extends JPanel {
 			bgColor = STATUS_BG_PLAYING;
 		}
 
-		// 渐变背景
 		g.setPaint(new GradientPaint(0, 0, bgColor, 0, STATUS_H, bgColor.darker()));
 		g.fillRoundRect(4, 2, panelW - 8, STATUS_H, 8, 8);
 
@@ -505,12 +589,10 @@ class ChessPanel extends JPanel {
 		FontMetrics fm = g.getFontMetrics();
 
 		if (chess.getNext() == null) {
-			// 游戏结束
 			String msg = getEndMessage();
 			g.setColor(STATUS_TEXT);
 			g.drawString(msg, 14, 2 + (STATUS_H + fm.getAscent() - fm.getDescent()) / 2);
 		} else {
-			// 游戏进行中 / 复盘中
 			Player next = chess.getNext();
 			String label = "下一手";
 			int textY = 2 + (STATUS_H + fm.getAscent() - fm.getDescent()) / 2;
@@ -518,7 +600,6 @@ class ChessPanel extends JPanel {
 			g.setColor(STATUS_TEXT);
 			g.drawString(label, 14, textY);
 
-			// 棋子指示圆
 			int circleX = 14 + fm.stringWidth(label) + 8;
 			int circleY = 2 + (STATUS_H - 18) / 2;
 			if (next == Player.BLACK) {
@@ -533,7 +614,6 @@ class ChessPanel extends JPanel {
 				g.drawOval(circleX, circleY, 18, 18);
 			}
 
-			// 右侧信息
 			String info = "第 " + chess.his.count() + " 手";
 			if (chess.isReviewMode()) {
 				info += "  ▶ 复盘中";
@@ -547,23 +627,18 @@ class ChessPanel extends JPanel {
 	}
 
 	private String getEndMessage() {
-		if (chess.winner == null) {
-			return "⚔ 不分胜负，棋逢对手！请重新来过";
-		}
-		if (chess.winner.isHuman()) {
-			return "🏆 恭喜获胜！武艺高强，甘拜下风";
-		}
-		if (chess.winner.getOpp().isHuman()) {
-			return "💀 电脑获胜，大侠一时失手，请再接再厉";
-		}
-		// 电脑 vs 电脑
+		if (chess.winner == null)
+			return "⚔ 不分胜负，棋逢对手！点击棋盘重新开始";
+		if (chess.winner.isHuman())
+			return "🏆 恭喜获胜！点击棋盘重新开始";
+		if (chess.winner.getOpp().isHuman())
+			return "💀 电脑获胜，点击棋盘再来一局";
 		return "⚡ " + (chess.winner == Player.BLACK ? "黑方" : "白方") + "获胜！";
 	}
 
 	void setReviewMenu(boolean enable) {
 		reviewMenu.getMenuComponent(0).setEnabled(!enable);
-		for (int i = 1; i < reviewMenu.getMenuComponentCount(); i++) {
+		for (int i = 1; i < reviewMenu.getMenuComponentCount(); i++)
 			reviewMenu.getMenuComponent(i).setEnabled(enable);
-		}
 	}
 }

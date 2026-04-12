@@ -61,6 +61,7 @@ public final class Chess implements Serializable {
 	private int[][] patternProgress;//记录两个玩家各自的棋形完成度，[n=1]两个玩家 [n=2]胜利棋形编号。用于盘面分值评估。
 	Player next = Player.BLACK; // 轮到
 	Player winner = null; // 赢家
+	int winPatternId = -1; // 胜利棋形编号，用于UI高亮
 	History his = new History();
 
 	/**
@@ -229,6 +230,7 @@ public final class Chess implements Serializable {
 			patternProgress[opp.ordinal()][i] = IMPOSSIBLE; // 对手的该种棋型变得不可能
 			if (5 == this.patternProgress[player.ordinal()][i]) {// 完成！
 				this.winner = player;
+				this.winPatternId = i;
 				this.next = null;
 				break;
 			}
@@ -253,6 +255,7 @@ public final class Chess implements Serializable {
 		if (rollPlayer == null)
 			return null;
 		this.winner = null;
+		this.winPatternId = -1;
 		this.next = rollPlayer;
 
 		Point point = his.pop();
@@ -341,6 +344,7 @@ public final class Chess implements Serializable {
 		Player.BLACK.setAi(blackAI);
 		Player.WHITE.setAi(whiteAI);
 		this.winner = null;
+		this.winPatternId = -1;
 		his.clear();
 		this.next = Player.BLACK;
 		for (int i = 0; i < width; i++)
@@ -391,6 +395,7 @@ public final class Chess implements Serializable {
 
 	private void initGameInternal() {
 		this.winner = null;
+		this.winPatternId = -1;
 		his.clear();
 		this.next = Player.BLACK;
 		for (int i = 0; i < width; i++)
@@ -588,6 +593,16 @@ public final class Chess implements Serializable {
 
 	public Pattern[] getPatterns() {
 		return PATTERN_POINTS;
+	}
+
+	/**
+	 * 获取胜利棋形的五个点坐标，无胜利时返回null
+	 */
+	public Point[] getWinPoints() {
+		if (winPatternId >= 0 && winPatternId < PATTERN_POINTS.length) {
+			return PATTERN_POINTS[winPatternId].getPoints();
+		}
+		return null;
 	}
 
 	public int[][] getTable() {
