@@ -24,11 +24,11 @@ import javax.swing.UIManager;
 /**
  * 代码重构，算法不变，可读性增强
  * 
- * @author jiyi
+ * @author Joey
  * 
  */
 public class GobangGame {
-	private static final String GAME_VERSION_STR = "五子棋游戏 版本1.13";
+	private static final String GAME_VERSION_STR = "五子棋游戏 版本1.14";
 
 	public static void main(String[] args) {
 		GameFrame game = new GameFrame();
@@ -41,6 +41,8 @@ public class GobangGame {
 	}
 
 	static class GameFrame extends JFrame {
+		private static final long serialVersionUID = 1L;
+
 		public GameFrame() {
 			int width = 13;
 			int height = 13;
@@ -234,13 +236,14 @@ public class GobangGame {
 	}
 }
 class ChessPanel extends JPanel {
-	private URL blackImgURL = GobangGame.class.getResource("black.gif");
+	private static final long serialVersionUID = -4677980500938864107L;
+	private URL blackImgURL = GobangGame.class.getResource("/black.gif");
 	private ImageIcon blackChess = new ImageIcon(blackImgURL);
-	private URL whiteImgURL = GobangGame.class.getResource("white.gif");
+	private URL whiteImgURL = GobangGame.class.getResource("/white.gif");
 	private ImageIcon whiteChess = new ImageIcon(whiteImgURL);
-	private URL currentImgURL = GobangGame.class.getResource("current.gif");
+	private URL currentImgURL = GobangGame.class.getResource("/white_new.gif");
 	private ImageIcon whiteCurrent = new ImageIcon(currentImgURL);
-	private URL currentBImgURL = GobangGame.class.getResource("black1.gif");
+	private URL currentBImgURL = GobangGame.class.getResource("/black_new.gif");
 	private ImageIcon blackCurrent = new ImageIcon(currentBImgURL);
 	JMenu reviewMenu;
 	Chess chess;

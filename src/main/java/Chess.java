@@ -184,7 +184,7 @@ public final class Chess implements Serializable {
 	private void loadConfig() {
 		this.properties.clear();
 		try {
-			this.properties.load(this.getClass().getResourceAsStream("ai.properties"));
+			this.properties.load(this.getClass().getResourceAsStream("/ai.properties"));
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
@@ -259,10 +259,6 @@ public final class Chess implements Serializable {
 
 		int x = point.x;
 		int y = point.y;
-		// if (chessBoard[x][y] == 0) {
-		// throw new IllegalArgumentException("Point " + point +
-		// " has no chess." );
-		// }
 		chessBoard[x][y] = 0;
 
 		Player opp = rollPlayer.getOpp();
@@ -274,7 +270,7 @@ public final class Chess implements Serializable {
 			// //由于是我方少下一子，因此原先无法完成的棋形还是无法完成.因此不用计算我方IMPOSSIBLE棋形的完成度
 
 			// 处理对方棋形的完成度，由于我方少下一子对对方可能棋形的完成度无影响，只会影响对方IMPOSSIBLE的棋形完成度
-			if (patternProgress[opp.ordinal()][i] == IMPOSSIBLE) {//
+			if (patternProgress[opp.ordinal()][i] == IMPOSSIBLE) {
 				Pattern pattern = PATTERN_POINTS[i];// 重算完成度
 				int progress = 0;
 				for (Point p : pattern.points) {
@@ -336,6 +332,24 @@ public final class Chess implements Serializable {
 			myLoc = ai.compute();
 		}
 		doMove(myLoc);
+	}
+
+	/**
+	 * 使用指定的AI初始化游戏（用于测试/评估）
+	 */
+	public void initGameWithAI(AI blackAI, AI whiteAI) {
+		Player.BLACK.setAi(blackAI);
+		Player.WHITE.setAi(whiteAI);
+		this.winner = null;
+		his.clear();
+		this.next = Player.BLACK;
+		for (int i = 0; i < width; i++)
+			for (int j = 0; j < height; j++)
+				this.chessBoard[i][j] = 0;
+		for (int i = 0; i < 2; i++)
+			for (int j = 0; j < PATTERN_POINTS.length; j++)
+				this.patternProgress[i][j] = 0;
+		computerMove();
 	}
 
 	public void initGame(boolean blackHuman, boolean whiteHuman) {
@@ -400,6 +414,68 @@ public final class Chess implements Serializable {
 		return patternProgress[player.ordinal()][patternId];
 	}
 
+	public int getPatternCount() {
+		int w_ = width - 4;
+		int h_ = height - 4;
+		if (w_ < 0) w_ = 0;
+		if (h_ < 0) h_ = 0;
+		return width * h_ + height * w_ + h_ * w_ * 2;
+	}
+
+	// ========== AI搜索用的轻量模拟接口 ==========
+
+	/**
+	 * 轻量落子，返回被覆盖的对手pattern旧值数组（用于simUndo恢复）。
+	 * @param x 落子x坐标
+	 * @param y 落子y坐标
+	 * @param player 落子方
+	 * @return 对手pattern旧值数组，长度等于该点关联的pattern数量
+	 */
+	public int[] simMove(int x, int y, Player player) {
+		Player opp = player.getOpp();
+		int pOrd = player.ordinal();
+		int oOrd = opp.ordinal();
+		if(x>=width || y>=height){
+			throw new IllegalArgumentException();
+		}
+		
+		chessBoard[x][y] = player.color();
+
+		int[] pids = POINTS_PATTERN[x][y];
+		int[] saved = new int[pids.length]; // 保存对手旧值
+		for (int k = 0; k < pids.length; k++) {
+			int i = pids[k];
+			saved[k] = patternProgress[oOrd][i];
+			if (patternProgress[pOrd][i] != IMPOSSIBLE) {
+				patternProgress[pOrd][i]++;
+			}
+			patternProgress[oOrd][i] = IMPOSSIBLE;
+		}
+		return saved;
+	}
+
+	/**
+	 * 撤销simMove，恢复棋盘和pattern状态。
+	 * @param x 落子x坐标
+	 * @param y 落子y坐标
+	 * @param player 落子方（与simMove时相同）
+	 * @param saved simMove返回的对手pattern旧值数组
+	 */
+	public void simUndo(int x, int y, Player player, int[] saved) {
+		int pOrd = player.ordinal();
+		int oOrd = player.getOpp().ordinal();
+		chessBoard[x][y] = 0;
+
+		int[] pids = POINTS_PATTERN[x][y];
+		for (int k = 0; k < pids.length; k++) {
+			int i = pids[k];
+			if (patternProgress[pOrd][i] != IMPOSSIBLE) {
+				patternProgress[pOrd][i]--;
+			}
+			patternProgress[oOrd][i] = saved[k];
+		}
+	}
+
 	public Thread startAuto(final int wait) {
 		Thread t = new Thread() {
 			@Override
@@ -430,16 +506,6 @@ public final class Chess implements Serializable {
 		String message = "白子：" + white + " , 黑子" + black + " 总手数" + his.count() + "  " + (winner == null ? "平局" : winner + "胜利");
 		if (printStep)
 			System.out.println(message);
-	}
-
-	private int getPatternCount() {
-		int w_ = width - 4;
-		int h_ = height - 4;
-		if (w_ < 0)
-			w_ = 0;
-		if (h_ < 0)
-			h_ = 0;
-		return width * h_ + height * w_ + h_ * w_ * 2;
 	}
 
 	/**
@@ -721,7 +787,6 @@ enum Player {
 	}
 }
 
-@SuppressWarnings("serial")
 class History implements Serializable {
 	private List<Point> steps = new ArrayList<Point>(128);
 	private Player last = null;
