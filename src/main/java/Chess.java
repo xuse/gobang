@@ -569,6 +569,7 @@ public final class Chess implements Serializable {
 		if (next.getAi() == null) {
 			next.setAi(createAI(next));
 		}
+		next.human = false; // 确保托管生效（"自动下一子"会留下ai但human仍为true）
 		if (next.getOpp().isHuman()) {
 			computerMove();
 			panel.repaint();
