@@ -52,27 +52,9 @@ public class GobangGame {
 		game.setVisible(true);
 	}
 
-	/** 当前AI难度，null表示非人机对局（自动/双人） */
-	static Level currentLevel = Level.BEGINNER;
-
 	/** 全局排行榜 */
 	static final Ranking ranking = new Ranking();
 
-	static enum Level {
-		BEGINNER("入门",RandomAI.class),
-		EASY("简单",AI.Default.class),
-		NORMAL("普通",SmartEvalAI.class),
-		HARD("困难",SmartSearchAI.class),
-		;
-		public final String name;
-		public final Class<? extends AI> value;
-
-		private Level(String name, Class<? extends AI> clz) {
-			this.name = name;
-			this.value = clz;
-		}
-	}
-	
 	static class GameFrame extends JFrame {
 		private static final long serialVersionUID = 1L;
 
@@ -106,14 +88,13 @@ public class GobangGame {
 			JMenu m_diff = new JMenu("AI难度");
 			javax.swing.ButtonGroup diffGroup = new javax.swing.ButtonGroup();
 			for (Level diff:Level.values()) {
-				javax.swing.JRadioButtonMenuItem item = new javax.swing.JRadioButtonMenuItem(diff.name, diff == currentLevel);
+				javax.swing.JRadioButtonMenuItem item = new javax.swing.JRadioButtonMenuItem(diff.name, diff == panel.chess.defaultAiLevel);
 				item.addActionListener(new ActionListener() {
 					public void actionPerformed(ActionEvent e) {
-						currentLevel = diff;
-						Class<? extends AI> clz = diff.value;
+						panel.chess.defaultAiLevel = diff;
 						for (Player p : Player.values()) {
 							if (!p.isHuman() && p.getAi() != null) {
-								p.setAi(panel.chess.createAI(clz));
+								p.setAi(panel.chess.createAI(diff));
 								p.human = false;
 							}
 						}
@@ -127,8 +108,7 @@ public class GobangGame {
 			m_main.add(new JMenuItem("开始游戏(执黑)")).addActionListener(new ActionListener() {
 				public void actionPerformed(ActionEvent e) {
 					if (!panel.confirmNewGame()) return;
-					currentLevel = currentLevel != null ? currentLevel : Level.BEGINNER;
-					panel.chess.initGame(true, false, currentLevel.value);
+					panel.chess.initGame(true, false);
 					SoundManager.playGameStart();
 					panel.resetIdleTimer();
 					panel.repaint();
@@ -138,8 +118,7 @@ public class GobangGame {
 			m_main.add(new JMenuItem("开始游戏(执白)")).addActionListener(new ActionListener() {
 				public void actionPerformed(ActionEvent e) {
 					if (!panel.confirmNewGame()) return;
-					currentLevel = currentLevel != null ? currentLevel : Level.BEGINNER;
-					panel.chess.initGame(false, true, currentLevel.value);
+					panel.chess.initGame(false, true);
 					SoundManager.playGameStart();
 					panel.resetIdleTimer();
 					panel.repaint();
@@ -149,7 +128,6 @@ public class GobangGame {
 			m_main.add(new JMenuItem("开始游戏(自动)")).addActionListener(new ActionListener() {
 				public void actionPerformed(ActionEvent e) {
 					if (!panel.confirmNewGame()) return;
-					currentLevel = null;
 					panel.chess.initGame(false, false);
 					SoundManager.playGameStart();
 					panel.stopIdleTimer();
@@ -160,7 +138,6 @@ public class GobangGame {
 			m_main.add(new JMenuItem("开始游戏(双人对局)")).addActionListener(new ActionListener() {
 				public void actionPerformed(ActionEvent e) {
 					if (!panel.confirmNewGame()) return;
-					currentLevel = null;
 					panel.chess.initGame(true, true);
 					SoundManager.playGameStart();
 					panel.resetIdleTimer();
@@ -316,10 +293,6 @@ public class GobangGame {
 				public void actionPerformed(ActionEvent e) {
 					if (webToggle.isSelected()) {
 						try {
-							// 同步AI难度到WebServer
-							if (GobangGame.currentLevel != null) {
-								webServer.setAiClass(GobangGame.currentLevel.value);
-							}
 							webServer.start(8080);
 							panel.webMode = true;
 							panel.stopIdleTimer();
@@ -579,8 +552,8 @@ class ChessPanel extends JPanel {
 			} else if (chess.winner.isHuman()) {
 				SoundManager.playVictory();
 				// 人机对局胜利时记录得分
-				if (GobangGame.currentLevel != null) {
-					String levelName = GobangGame.currentLevel.name;
+				if (chess.defaultAiLevel != null) {
+					String levelName = chess.defaultAiLevel.name;
 					String color = chess.winner == Player.BLACK ? "BLACK" : "WHITE";
 					int steps = chess.his.count();
 					boolean forbidden = chess.forbiddenMoveRule;
@@ -822,8 +795,8 @@ class ChessPanel extends JPanel {
 			String info = "第 " + chess.his.count() + " 手";
 			if (chess.isReviewMode()) {
 				info += "  ▶ 复盘中";
-			} else if (GobangGame.currentLevel != null) {
-				info += "  [" + GobangGame.currentLevel.name + "]";
+			} else if (chess.defaultAiLevel != null) {
+				info += "  [" + chess.defaultAiLevel.name + "]";
 			}
 			if (chess.forbiddenMoveRule) {
 				info += "  [禁手]";

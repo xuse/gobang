@@ -101,7 +101,7 @@ public class ChessConsole {
 		Player next=chess.next;
 		if(next==null)return;
 		
-		next.setAi(chess.createAI(next));
+		next.setAi(chess.createAI(chess.defaultAiLevel));
 		if(next.getOpp().isHuman()){
 			chess.computerMove();
 		}else{

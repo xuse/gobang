@@ -1,7 +1,3 @@
-import com.sun.net.httpserver.HttpExchange;
-import com.sun.net.httpserver.HttpHandler;
-import com.sun.net.httpserver.HttpServer;
-
 import java.awt.Point;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -13,6 +9,10 @@ import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
+
+import com.sun.net.httpserver.HttpExchange;
+import com.sun.net.httpserver.HttpHandler;
+import com.sun.net.httpserver.HttpServer;
 
 /**
  * 内嵌HTTP服务器，支持网页远程对局。
@@ -54,7 +54,6 @@ public class WebServer {
 
 	// AI难度（与Swing菜单同步）
 	private Class<? extends AI> aiClass = SmartSearchAI.class;
-	private String aiLevelName = "困难";
 
 	public WebServer(Chess chess, Runnable repaintCallback) {
 		this.chess = chess;
@@ -101,7 +100,6 @@ public class WebServer {
 		tokenToRole.clear();
 	}
 
-	public void setAiClass(Class<? extends AI> clz) { this.aiClass = clz; }
 
 	/** 推送SSE事件给所有客户端 */
 	public void broadcastState() {
@@ -137,7 +135,7 @@ public class WebServer {
 		sb.append(",\"steps\":").append(chess.his.count());
 		sb.append(",\"forbidden\":").append(chess.isForbiddenMoveRule());
 		sb.append(",\"gameMode\":\"").append(gameMode.name()).append("\"");
-		sb.append(",\"aiLevel\":\"").append(aiLevelName).append("\"");
+		sb.append(",\"aiLevel\":\"").append(chess.defaultAiLevel.name).append("\"");
 		sb.append(",\"phase\":\"").append(phase.name()).append("\"");
 
 		Point last = chess.his.getLast();
@@ -243,14 +241,12 @@ public class WebServer {
 			}
 
 			// 解析AI难度
-			Class<? extends AI> selectedAiClass = aiClass;
-			String selectedLevelName = aiLevelName;
 			if (level != null) {
 				switch (level) {
-					case "BEGINNER": selectedAiClass = RandomAI.class; selectedLevelName = "入门"; break;
-					case "EASY": selectedAiClass = AI.Default.class; selectedLevelName = "简单"; break;
-					case "NORMAL": selectedAiClass = SmartEvalAI.class; selectedLevelName = "普通"; break;
-					case "HARD": selectedAiClass = SmartSearchAI.class; selectedLevelName = "困难"; break;
+					case "BEGINNER": chess.defaultAiLevel = Level.BEGINNER; break;
+					case "EASY": chess.defaultAiLevel = Level.EASY; break;
+					case "NORMAL": chess.defaultAiLevel = Level.NORMAL; break;
+					case "HARD": chess.defaultAiLevel = Level.HARD; break;
 				}
 			}
 
@@ -259,7 +255,6 @@ public class WebServer {
 
 			synchronized (WebServer.this) {
 				resetSession();
-				aiLevelName = selectedLevelName;
 				String token = UUID.randomUUID().toString().substring(0, 8);
 				String role;
 				String code = null;
@@ -270,10 +265,7 @@ public class WebServer {
 				switch (mode) {
 					case "PVE_BLACK":
 						gameMode = GameMode.PVE_BLACK;
-						Player.BLACK.setAi(null);
-						Player.WHITE.setAi(chess.createAI(selectedAiClass));
-						Player.WHITE.human = false;
-						chess.initGame(true, false, selectedAiClass);
+						chess.initGame(true, false);
 						blackToken = token;
 						role = "BLACK";
 						tokenToRole.put(token, role);
@@ -281,10 +273,7 @@ public class WebServer {
 						break;
 					case "PVE_WHITE":
 						gameMode = GameMode.PVE_WHITE;
-						Player.BLACK.setAi(chess.createAI(selectedAiClass));
-						Player.BLACK.human = false;
-						Player.WHITE.setAi(null);
-						chess.initGame(false, true, selectedAiClass);
+						chess.initGame(false, true);
 						whiteToken = token;
 						role = "WHITE";
 						tokenToRole.put(token, role);
@@ -292,8 +281,6 @@ public class WebServer {
 						break;
 					case "AUTO":
 						gameMode = GameMode.AUTO;
-						Player.BLACK.setAi(chess.createAI(selectedAiClass));
-						Player.WHITE.setAi(chess.createAI(selectedAiClass));
 						chess.initGame(false, false);
 						role = "SPECTATOR";
 						tokenToRole.put(token, role);

@@ -38,6 +38,12 @@ public final class Chess implements Serializable {
 	 */
 	transient boolean forbiddenMoveRule = true;
 
+	/**
+	 * 默认AI类，用于托管、自动下一子等场景。
+	 * 由外部（菜单/网页）设置，避免硬编码AI.Default。
+	 */
+	transient Level defaultAiLevel = Level.NORMAL;
+
 	public boolean isForbiddenMoveRule() {
 		return forbiddenMoveRule;
 	}
@@ -335,7 +341,7 @@ public final class Chess implements Serializable {
 		} else {
 			AI ai = next.getAi();
 			if (ai == null) {
-				next.setAi(createAI(next));
+				next.setAi(createAI(defaultAiLevel));
 				next.human = true; // 走一步赋予ai不能认为改变角色
 				ai = next.getAi();
 			}
@@ -366,33 +372,16 @@ public final class Chess implements Serializable {
 	/**
 	 * 使用指定AI类初始化游戏（用于UI难度选择）
 	 */
-	public void initGame(boolean blackHuman, boolean whiteHuman, Class<? extends AI> aiClass) {
-		if (blackHuman) {
-			Player.BLACK.setAi(null);
-		} else {
-			Player.BLACK.setAi(createAI(aiClass));
-		}
-		if (whiteHuman) {
-			Player.WHITE.setAi(null);
-		} else {
-			Player.WHITE.setAi(createAI(aiClass));
-		}
-		initGameInternal();
-		if (!next.isHuman()) {
-			computerMove();
-		}
-	}
-
 	public void initGame(boolean blackHuman, boolean whiteHuman) {
 		if (blackHuman) {
 			Player.BLACK.setAi(null);
 		} else {
-			Player.BLACK.setAi(createAI(Player.BLACK));
+			Player.BLACK.setAi(createAI(defaultAiLevel));
 		}
 		if (whiteHuman) {
 			Player.WHITE.setAi(null);
 		} else {
-			Player.WHITE.setAi(createAI(Player.WHITE));
+			Player.WHITE.setAi(createAI(defaultAiLevel));
 		}
 		initGameInternal();
 		if (!next.isHuman()) {
@@ -416,13 +405,9 @@ public final class Chess implements Serializable {
 		}
 	}
 
-	AI createAI(Player p) {
-		return new AI.Default(this);
-	}
-
-	AI createAI(Class<? extends AI> clz) {
+	AI createAI(Level level) {
 		try {
-			Constructor<? extends AI> c = clz.getConstructor(Chess.class);
+			Constructor<? extends AI> c = level.value.getConstructor(Chess.class);
 			return c.newInstance(this);
 		} catch (Exception e) {
 			e.printStackTrace();
@@ -613,7 +598,7 @@ public final class Chess implements Serializable {
 		if (next == null)
 			return;
 		if (next.getAi() == null) {
-			next.setAi(createAI(next));
+			next.setAi(createAI(defaultAiLevel));
 		}
 		next.human = false; // 确保托管生效（"自动下一子"会留下ai但human仍为true）
 		if (next.getOpp().isHuman()) {
