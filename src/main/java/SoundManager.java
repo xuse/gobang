@@ -119,8 +119,8 @@ public class SoundManager {
 		playAsync(() -> {
 			try {
 				int sampleRate = 22050;
-				int noteLen = sampleRate / 8;
-				int gapLen = sampleRate / 20;
+				int noteLen = sampleRate / 4;  // 0.25秒每音
+				int gapLen = sampleRate / 12;  // 间隔
 				int total = noteLen * 2 + gapLen;
 				byte[] buf = new byte[total];
 				double[] freqs = {660.0, 880.0}; // E5, A5
@@ -128,7 +128,7 @@ public class SoundManager {
 					int offset = n * (noteLen + gapLen);
 					for (int i = 0; i < noteLen; i++) {
 						double t = (double) i / sampleRate;
-						double env = Math.exp(-t * 20);
+						double env = Math.exp(-t * 8);
 						env *= Math.min(1.0, i / (double) (sampleRate / 200));
 						double wave = Math.sin(2 * Math.PI * freqs[n] * t) * 0.7
 								+ Math.sin(2 * Math.PI * freqs[n] * 2 * t) * 0.3;
