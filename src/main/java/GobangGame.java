@@ -420,8 +420,6 @@ class ChessPanel extends JPanel {
 
 	private final ImageIcon blackChess;
 	private final ImageIcon whiteChess;
-	private final ImageIcon whiteCurrent;
-	private final ImageIcon blackCurrent;
 
 	private static final Color STATUS_BG_PLAYING = new Color(50, 50, 50);
 	private static final Color STATUS_BG_WIN = new Color(0, 120, 60);
@@ -451,8 +449,6 @@ class ChessPanel extends JPanel {
 	public ChessPanel(int x, int y) {
 		blackChess = loadIcon("/black.gif");
 		whiteChess = loadIcon("/white.gif");
-		whiteCurrent = loadIcon("/white_new.gif");
-		blackCurrent = loadIcon("/black_new.gif");
 
 		chess = new Chess(this, x, y);
 		chess.initGame(true, false);
@@ -695,16 +691,27 @@ class ChessPanel extends JPanel {
 			}
 		}
 
-		Point p = chess.his.getLast();
-		if (p != null) {
-			ImageIcon icon = chess.his.getLastPlayer() == Player.WHITE ? whiteCurrent : blackCurrent;
-			g.drawImage(icon.getImage(), p.x * 30 + 31, p.y * 30 + 31,
-					icon.getIconWidth() - 4, icon.getIconHeight() - 4, this);
+		// 最新落子标记：在棋子中心画一个对比色小圆点
+		// 标记最近两步（人机对局时人类和AI各一步都可见）
+		Point last = chess.his.getLast();
+		Point prev = chess.his.getPrevLast();
+		if (last != null) {
+			drawMoveMarker(g, last, chess.his.getLastPlayer() == Player.BLACK);
+		}
+		if (prev != null) {
+			drawMoveMarker(g, prev, chess.his.getLastPlayer() != Player.BLACK);
 		}
 
-		if (chess.printStep && p != null) {
-			Util.print(board, p, null);
+		if (chess.printStep && last != null) {
+			Util.print(board, last, null);
 		}
+	}
+
+	/** 在棋子中心画对比色小圆点标记 */
+	private void drawMoveMarker(Graphics2D g, Point p, boolean isBlack) {
+		int cx = p.x * 30 + 50, cy = p.y * 30 + 50;
+		g.setColor(isBlack ? Color.WHITE : Color.BLACK);
+		g.fillOval(cx - 4, cy - 4, 8, 8);
 	}
 
 	/** 鼠标悬停时绘制半透明预影棋子，禁手点显示红色X标记 */

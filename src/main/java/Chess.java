@@ -1,17 +1,11 @@
 import java.awt.Point;
 import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
 import java.io.Serializable;
 import java.lang.reflect.Constructor;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Properties;
 
 /**
  * 五子棋处理引擎
@@ -34,10 +28,6 @@ public final class Chess implements Serializable {
 	 * 但如果从开始起就每步检测平局是没有必要的浪费，因此规定落子达到数量后，再开始检测平局。
 	 */
 	transient int drawPossiable;
-	/**
-	 * AI外部配置读入。 
-	 */
-	transient Properties properties;
 	/**
 	 * 是否打印出每步坐标
 	 */
@@ -87,8 +77,6 @@ public final class Chess implements Serializable {
 	public Chess(ChessPanel p, int width, int height) {
 		this.panel = p;
 		resetSize(width, height);
-		this.properties = new Properties();
-		loadConfig();
 	}
 
 	/**
@@ -194,16 +182,6 @@ public final class Chess implements Serializable {
 		this.chessBoard = new int[width][height]; // 落子表
 		this.patternProgress = new int[2][PATTERN_POINTS.length];// 棋型达成度表;
 		return true;
-	}
-
-	private void loadConfig() {
-		this.properties.clear();
-		try {
-			this.properties.load(this.getClass().getResourceAsStream("/ai.properties"));
-		} catch (IOException e) {
-			e.printStackTrace();
-		}
-		printStep = "true".equalsIgnoreCase(this.properties.getProperty("print"));
 	}
 
 	/**
@@ -439,16 +417,6 @@ public final class Chess implements Serializable {
 	}
 
 	AI createAI(Player p) {
-		String ai = properties.getProperty(p.name().toLowerCase());
-		try {
-			if (ai != null && ai.length() > 0) {
-				Class<?> clz = Class.forName(ai.trim());
-				Constructor<?> c = clz.getConstructor(Chess.class);
-				return (AI) c.newInstance(this);
-			}
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
 		return new AI.Default(this);
 	}
 
@@ -660,8 +628,6 @@ public final class Chess implements Serializable {
 		this.chessBoard = null;
 		this.next = null;
 		this.his = null;
-		this.properties = null;
-
 	}
 
 	public boolean isAutoRunning() {
