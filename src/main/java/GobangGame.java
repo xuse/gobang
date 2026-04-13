@@ -294,7 +294,15 @@ public class GobangGame {
 				}
 			});
 
+			JCheckBoxMenuItem forbiddenToggle = new JCheckBoxMenuItem("黑方禁手", panel.chess.forbiddenMoveRule);
+			forbiddenToggle.addActionListener(new ActionListener() {
+				public void actionPerformed(ActionEvent e) {
+					panel.chess.forbiddenMoveRule = forbiddenToggle.isSelected();
+				}
+			});
+
 			m_help.add(soundToggle);
+			m_help.add(forbiddenToggle);
 			m_help.addSeparator();
 			m_help.add(new JMenuItem("关于")).addActionListener(new ActionListener() {
 				public void actionPerformed(ActionEvent e) {
@@ -434,6 +442,15 @@ class ChessPanel extends JPanel {
 					int by = Math.round((e.getY() - 50) / 30.0f);
 					if (bx >= 0 && bx < chess.width && by >= 0 && by < chess.height)
 						if (chess.getTable()[bx][by] == 0) {
+							// 禁手检查：人类执黑时提示而非直接判负
+							if (chess.forbiddenMoveRule && chess.next == Player.BLACK
+									&& chess.isForbidden(bx, by)) {
+								SoundManager.playReminder();
+								JOptionPane.showMessageDialog(ChessPanel.this,
+										"此处为禁手（三三/四四/长连），黑方不能落子！",
+										"禁手", JOptionPane.WARNING_MESSAGE);
+								return;
+							}
 							chess.doMove(new Point(bx, by));
 							SoundManager.playPlace();
 							if (chess.next != null && !chess.next.isHuman()) {
@@ -554,16 +571,33 @@ class ChessPanel extends JPanel {
 		}
 	}
 
-	/** 鼠标悬停时绘制半透明预影棋子 */
+	/** 鼠标悬停时绘制半透明预影棋子，禁手点显示红色X标记 */
 	private void drawHoverPreview(Graphics2D g) {
 		if (hoverX < 0 || chess.getNext() == null || chess.isReviewMode()) return;
 		if (!chess.getNext().isHuman()) return;
 		if (chess.getTable()[hoverX][hoverY] != 0) return;
 
+		int px = hoverX * 30 + 31, py = hoverY * 30 + 31;
+
+		// 禁手点标记
+		if (chess.forbiddenMoveRule && chess.getNext() == Player.BLACK
+				&& chess.isForbidden(hoverX, hoverY)) {
+			Composite oldComp = g.getComposite();
+			g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.6f));
+			Stroke oldStroke = g.getStroke();
+			g.setStroke(new BasicStroke(2.5f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+			g.setColor(new Color(220, 40, 40));
+			int cx = hoverX * 30 + 50, cy = hoverY * 30 + 50;
+			g.drawLine(cx - 8, cy - 8, cx + 8, cy + 8);
+			g.drawLine(cx - 8, cy + 8, cx + 8, cy - 8);
+			g.setStroke(oldStroke);
+			g.setComposite(oldComp);
+			return;
+		}
+
 		Composite oldComp = g.getComposite();
 		g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.35f));
 
-		int px = hoverX * 30 + 31, py = hoverY * 30 + 31;
 		ImageIcon icon = chess.getNext() == Player.BLACK ? blackChess : whiteChess;
 		g.drawImage(icon.getImage(), px, py,
 				icon.getIconWidth() - 3, icon.getIconHeight() - 3, this);
@@ -647,6 +681,9 @@ class ChessPanel extends JPanel {
 				info += "  ▶ 复盘中";
 			} else if (GobangGame.currentLevel != null) {
 				info += "  [" + GobangGame.currentLevel.name + "]";
+			}
+			if (chess.forbiddenMoveRule) {
+				info += "  [禁手]";
 			}
 			g.setColor(STATUS_TEXT_DIM);
 			int infoW = fm.stringWidth(info);

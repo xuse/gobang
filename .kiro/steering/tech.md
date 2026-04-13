@@ -32,9 +32,6 @@ java -cp target/classes GobangGame
 
 # Run the console game
 java -cp target/classes ChessConsole
-
-# Run AI benchmark (1000 games, headless)
-java -cp target/classes Chess
 ```
 
 ## AI Configuration

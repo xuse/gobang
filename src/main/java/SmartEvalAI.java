@@ -33,6 +33,7 @@ public class SmartEvalAI implements AI {
 		int[][] table = chess.getTable();
 		int centerX = W / 2;
 		int centerY = H / 2;
+		boolean checkForbidden = chess.forbiddenMoveRule && me == Player.BLACK;
 
 		int capacity = W * H;
 		int[] px = new int[capacity], py = new int[capacity];
@@ -44,6 +45,7 @@ public class SmartEvalAI implements AI {
 			for (int j = 0; j < H; j++) {
 				if (table[i][j] != 0) continue;
 				if (!hasNeighbor(table, i, j)) continue;
+				if (checkForbidden && chess.isForbidden(i, j)) continue; // 跳过禁手点
 
 				int atk = 0, def = 0;
 				int myThrees = 0, myFours = 0;   // 我方三连和四连计数

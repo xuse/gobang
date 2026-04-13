@@ -43,6 +43,11 @@ public final class Chess implements Serializable {
 	 */
 	transient boolean printStep;
 	/**
+	 * 禁手规则开关（仅对黑方生效）。
+	 * 标准五子棋规则中，先手（黑方）禁止下出三三、四四、长连。
+	 */
+	transient boolean forbiddenMoveRule = false;
+	/**
 	 * 界面的Panel
 	 */
 	transient ChessPanel panel;
@@ -214,6 +219,21 @@ public final class Chess implements Serializable {
 			System.out.println("无效落子，该点" + point + "已有" + Player.values()[chessBoard[x][y]-1]);
 			return; // 无效
 		}
+		// 禁手检测：黑方落子前检查是否为禁手
+		if (forbiddenMoveRule && player == Player.BLACK) {
+			if (isForbidden(x, y)) {
+				if (printStep) {
+					System.out.println(player + "\t(" + x + "," + y + ") 禁手！白方胜");
+				}
+				his.add(point, player);
+				this.chessBoard[x][y] = player.color();
+				this.winner = Player.WHITE; // 黑方禁手，白方胜
+				this.next = null;
+				onOver();
+				return;
+			}
+		}
+
 		if (printStep) {
 			System.out.println(player + "\t(" + x + "," + y + ")");
 		}
@@ -705,6 +725,188 @@ public final class Chess implements Serializable {
 		if(isReviewMode()){
 			his.exitReview(this,flag);
 		}
+	}
+
+	// ========== 禁手检测 ==========
+
+	/**
+	 * 判断黑方在(x,y)落子是否为禁手。
+	 * 禁手类型：三三、四四、长连（六子及以上连线）。
+	 * 仅在 forbiddenMoveRule 为 true 且落子方为黑方时调用。
+	 * 注意：如果落子直接形成五连则不算禁手（五连优先）。
+	 */
+	public boolean isForbidden(int x, int y) {
+		if (!forbiddenMoveRule) return false;
+		int[][] board = chessBoard;
+		int color = Player.BLACK.color(); // 1
+
+		// 临时落子
+		board[x][y] = color;
+
+		// 四个方向: 水平(1,0), 垂直(0,1), 对角线(1,1), 反对角线(1,-1)
+		int[][] dirs = {{1, 0}, {0, 1}, {1, 1}, {1, -1}};
+
+		// 先检查是否有五连——五连优先，不算禁手
+		for (int[] d : dirs) {
+			int count = countConsecutive(board, x, y, d[0], d[1], color);
+			if (count == 5) {
+				board[x][y] = 0;
+				return false;
+			}
+		}
+
+		// 检查长连（六子及以上）
+		for (int[] d : dirs) {
+			int count = countConsecutive(board, x, y, d[0], d[1], color);
+			if (count >= 6) {
+				board[x][y] = 0;
+				return true;
+			}
+		}
+
+		// 统计活三和四的数量
+		int liveThrees = 0;
+		int fours = 0;
+		for (int[] d : dirs) {
+			fours += countFoursInDir(board, x, y, d[0], d[1], color);
+			if (isLiveThreeInDir(board, x, y, d[0], d[1], color)) {
+				liveThrees++;
+			}
+		}
+
+		board[x][y] = 0;
+
+		if (liveThrees >= 2) return true;  // 三三禁手
+		if (fours >= 2) return true;       // 四四禁手
+
+		return false;
+	}
+
+	/**
+	 * 计算在(x,y)位置沿(dx,dy)方向的连续同色棋子数（包含(x,y)自身）。
+	 */
+	private int countConsecutive(int[][] board, int x, int y, int dx, int dy, int color) {
+		int count = 1;
+		for (int i = 1; ; i++) {
+			int nx = x + dx * i, ny = y + dy * i;
+			if (nx < 0 || nx >= width || ny < 0 || ny >= height || board[nx][ny] != color) break;
+			count++;
+		}
+		for (int i = 1; ; i++) {
+			int nx = x - dx * i, ny = y - dy * i;
+			if (nx < 0 || nx >= width || ny < 0 || ny >= height || board[nx][ny] != color) break;
+			count++;
+		}
+		return count;
+	}
+
+	/**
+	 * 提取以(x,y)为中心、沿(dx,dy)方向的线段内容到数组中。
+	 * 返回的数组长度为 2*radius+1，中心索引为 radius。
+	 * 边界外的位置填充 -1。
+	 */
+	private int[] extractLine(int[][] board, int x, int y, int dx, int dy, int radius) {
+		int len = 2 * radius + 1;
+		int[] line = new int[len];
+		int center = radius;
+		line[center] = board[x][y];
+		for (int i = 1; i <= radius; i++) {
+			int nx = x + dx * i, ny = y + dy * i;
+			line[center + i] = (nx >= 0 && nx < width && ny >= 0 && ny < height) ? board[nx][ny] : -1;
+			nx = x - dx * i; ny = y - dy * i;
+			line[center - i] = (nx >= 0 && nx < width && ny >= 0 && ny < height) ? board[nx][ny] : -1;
+		}
+		return line;
+	}
+
+	/**
+	 * 检测在(x,y)落子后，沿(dx,dy)方向是否形成"活三"。
+	 * 活三定义：再走一步可以形成活四的三。
+	 * 活四定义：连续四子且两端都是空位（对手无法一步防住）。
+	 * 
+	 * 实现方式：在该方向的线段上，找到所有包含(x,y)的"三子+空位"组合，
+	 * 尝试在空位处落子，检查是否能形成活四。
+	 */
+	private boolean isLiveThreeInDir(int[][] board, int x, int y, int dx, int dy, int color) {
+		int[] line = extractLine(board, x, y, dx, dy, 5);
+		int center = 5;
+
+		// 枚举所有包含center的、长度为5的窗口，寻找"3子+2空"的模式
+		// 这些是潜在的活三
+		for (int start = Math.max(0, center - 4); start <= Math.min(6, center); start++) {
+			int end = start + 4;
+			if (end >= line.length) break;
+			int myCount = 0, emptyCount = 0;
+			boolean valid = true;
+			boolean hasCenter = false;
+			int emptyPos1 = -1, emptyPos2 = -1;
+			for (int i = start; i <= end; i++) {
+				if (i == center) hasCenter = true;
+				if (line[i] == color) myCount++;
+				else if (line[i] == 0) {
+					emptyCount++;
+					if (emptyPos1 == -1) emptyPos1 = i;
+					else emptyPos2 = i;
+				} else { valid = false; break; }
+			}
+			if (!valid || !hasCenter || myCount != 3 || emptyCount != 2) continue;
+
+			// 找到一个"三子+两空"的窗口，检查在任一空位落子后是否形成活四
+			// 活四 = 连续4子 + 两端空
+			int[] emptyPositions = (emptyPos2 == -1) ? new int[]{emptyPos1} : new int[]{emptyPos1, emptyPos2};
+			for (int ep : emptyPositions) {
+				line[ep] = color; // 临时落子
+				// 检查以ep为一部分的连续4子是否两端空
+				// 找到包含ep的连续同色段
+				int l = ep, r = ep;
+				while (l > 0 && line[l - 1] == color) l--;
+				while (r < line.length - 1 && line[r + 1] == color) r++;
+				int consec = r - l + 1;
+				if (consec == 4) {
+					boolean leftOpen = (l - 1 >= 0 && line[l - 1] == 0);
+					boolean rightOpen = (r + 1 < line.length && line[r + 1] == 0);
+					if (leftOpen && rightOpen) {
+						line[ep] = 0; // 恢复
+						return true;
+					}
+				}
+				line[ep] = 0; // 恢复
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * 检测在(x,y)落子后，沿(dx,dy)方向形成的"四"的数量（0或1）。
+	 * 四 = 在连续5格中有4个己方棋子和1个空位。
+	 * 一个方向上最多算1个四。
+	 */
+	private int countFoursInDir(int[][] board, int x, int y, int dx, int dy, int color) {
+		int[] line = extractLine(board, x, y, dx, dy, 5);
+		int center = 5;
+
+		// 先检查连四（连续4子），直接返回1
+		int l = center, r = center;
+		while (l > 0 && line[l - 1] == color) l--;
+		while (r < line.length - 1 && line[r + 1] == color) r++;
+		if (r - l + 1 >= 4) return 1;
+
+		// 枚举所有包含center的长度为5的窗口，寻找"4子+1空"
+		for (int start = Math.max(0, center - 4); start <= Math.min(6, center); start++) {
+			int end = start + 4;
+			if (end >= line.length) break;
+			int myCount = 0, emptyCount = 0;
+			boolean valid = true, hasCenter = false;
+			for (int i = start; i <= end; i++) {
+				if (i == center) hasCenter = true;
+				if (line[i] == color) myCount++;
+				else if (line[i] == 0) emptyCount++;
+				else { valid = false; break; }
+			}
+			if (!valid || !hasCenter) continue;
+			if (myCount == 4 && emptyCount == 1) return 1;
+		}
+		return 0;
 	}
 
 	public void reCalcProgress() {

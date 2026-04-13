@@ -21,12 +21,15 @@ public interface AI {
 			Player myId = chess.next;
 			Player opp = myId.getOpp();
 			int[][] chessTable = chess.getTable();
+			boolean checkForbidden = chess.forbiddenMoveRule && myId == Player.BLACK;
 			for (int i = 0; i < chess.width; i++)
 				for (int j = 0; j < chess.height; j++) {
 					this.oppGrades[i][j] = 0;
 					this.myGrades[i][j] = 0;
 					if (chessTable[i][j] != 0)
 						continue;
+					if (checkForbidden && chess.isForbidden(i, j))
+						continue; // 跳过禁手点
 					for (int k : chess.getPointToPattern(i, j))
 						switch (chess.getPatternScore(opp, k)) {
 						case 1: // 一连子

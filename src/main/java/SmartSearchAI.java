@@ -37,12 +37,19 @@ public class SmartSearchAI implements AI {
 		Player me = chess.next;
 		Player opp = me.getOpp();
 		int[][] table = chess.getTable();
+		boolean checkForbidden = chess.forbiddenMoveRule && me == Player.BLACK;
 
 		initNbr(table);
 
 		int[] cx = new int[W * H], cy = new int[W * H];
 		int cn = gather(cx, cy, table);
 		if (cn == 0) return new Point(W / 2, H / 2);
+
+		// 过滤禁手点
+		if (checkForbidden) {
+			cn = filterForbidden(cx, cy, cn);
+			if (cn == 0) return new Point(W / 2, H / 2); // 所有点都是禁手（极端情况）
+		}
 
 		// 即时胜利
 		for (int i = 0; i < cn; i++)
@@ -339,5 +346,20 @@ public class SmartSearchAI implements AI {
 				t = scores[i]; scores[i] = scores[best]; scores[best] = t;
 			}
 		}
+	}
+
+	/**
+	 * 过滤掉禁手点，返回过滤后的候选数量。
+	 */
+	private int filterForbidden(int[] cx, int[] cy, int cn) {
+		int write = 0;
+		for (int i = 0; i < cn; i++) {
+			if (!chess.isForbidden(cx[i], cy[i])) {
+				cx[write] = cx[i];
+				cy[write] = cy[i];
+				write++;
+			}
+		}
+		return write;
 	}
 }
