@@ -46,7 +46,16 @@ public final class Chess implements Serializable {
 	 * 禁手规则开关（仅对黑方生效）。
 	 * 标准五子棋规则中，先手（黑方）禁止下出三三、四四、长连。
 	 */
-	transient boolean forbiddenMoveRule = false;
+	transient boolean forbiddenMoveRule = true;
+
+	public boolean isForbiddenMoveRule() {
+		return forbiddenMoveRule;
+	}
+
+	public void setForbiddenMoveRule(boolean enabled) {
+		this.forbiddenMoveRule = enabled;
+	}
+
 	/**
 	 * 界面的Panel
 	 */
@@ -669,41 +678,158 @@ public final class Chess implements Serializable {
 	}
 
 	public void load(File file) {
-		ObjectInputStream in = null;
 		try {
-			in = new ObjectInputStream(new FileInputStream(file));
-			Chess chess = (Chess) in.readObject();
-			this.resetSize(chess.width, chess.height);
-			this.chessBoard = chess.chessBoard;
-			this.patternProgress = chess.patternProgress;
-			this.winner = chess.winner;
-			this.next = chess.next;
-			this.his = chess.his;
-			this.his.reviewIndex=-1;
-		} catch (FileNotFoundException e) {
-			throw new RuntimeException(e);
+			String json = new String(java.nio.file.Files.readAllBytes(file.toPath()), java.nio.charset.StandardCharsets.UTF_8);
+			loadFromJson(json);
 		} catch (IOException e) {
 			throw new RuntimeException(e);
-		} catch (ClassNotFoundException e) {
-			throw new RuntimeException(e);
-		} finally {
-			if (in != null)
-				try {
-					in.close();
-				} catch (IOException e) {
-					e.printStackTrace();
-				}
 		}
 	}
 
 	public void save(File file) {
 		try {
-			ObjectOutputStream os = new ObjectOutputStream(new FileOutputStream(file));
-			os.writeObject(this);
-			os.close();
+			String json = toJson();
+			java.nio.file.Files.write(file.toPath(), json.getBytes(java.nio.charset.StandardCharsets.UTF_8));
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
+	}
+
+	// ========== JSON 序列化 ==========
+
+	/**
+	 * 导出为JSON格式。格式简洁，人类可读。
+	 */
+	public String toJson() {
+		StringBuilder sb = new StringBuilder(4096);
+		sb.append("{\n");
+		sb.append("  \"version\": 1,\n");
+		sb.append("  \"width\": ").append(width).append(",\n");
+		sb.append("  \"height\": ").append(height).append(",\n");
+		sb.append("  \"forbidden\": ").append(forbiddenMoveRule).append(",\n");
+		sb.append("  \"next\": ").append(next == null ? "null" : "\"" + next.name() + "\"").append(",\n");
+		sb.append("  \"winner\": ").append(winner == null ? "null" : "\"" + winner.name() + "\"").append(",\n");
+		// 棋盘：每行用字符串表示，0=空, 1=黑, 2=白
+		sb.append("  \"board\": [\n");
+		for (int j = 0; j < height; j++) {
+			sb.append("    \"");
+			for (int i = 0; i < width; i++) {
+				sb.append(chessBoard[i][j]);
+			}
+			sb.append("\"");
+			if (j < height - 1) sb.append(",");
+			sb.append("\n");
+		}
+		sb.append("  ],\n");
+		// 历史记录
+		sb.append("  \"history\": [\n");
+		for (int i = 0; i < his.count(); i++) {
+			Point p = his.get(i);
+			sb.append("    {\"x\":").append(p.x).append(",\"y\":").append(p.y).append("}");
+			if (i < his.count() - 1) sb.append(",");
+			sb.append("\n");
+		}
+		sb.append("  ]\n");
+		sb.append("}\n");
+		return sb.toString();
+	}
+
+	/**
+	 * 从JSON格式加载。
+	 */
+	public void loadFromJson(String json) {
+		// 解析基本字段
+		int w = extractJsonInt(json, "width");
+		int h = extractJsonInt(json, "height");
+		if (w <= 0 || h <= 0) throw new IllegalArgumentException("Invalid board size");
+		resetSize(w, h);
+
+		forbiddenMoveRule = extractJsonInt(json, "forbidden") == 1;
+
+		String nextStr = extractJsonString(json, "next");
+		next = nextStr == null ? null : Player.valueOf(nextStr);
+
+		String winnerStr = extractJsonString(json, "winner");
+		winner = winnerStr == null ? null : Player.valueOf(winnerStr);
+
+		// 解析棋盘
+		int boardStart = json.indexOf("\"board\":");
+		if (boardStart > 0) {
+			int arrStart = json.indexOf('[', boardStart);
+			int arrEnd = json.indexOf(']', arrStart);
+			String boardSection = json.substring(arrStart, arrEnd + 1);
+			int row = 0;
+			for (int i = 0; i < boardSection.length() && row < height; i++) {
+				char c = boardSection.charAt(i);
+				if (c == '"') {
+					int col = 0;
+					i++;
+					while (i < boardSection.length() && boardSection.charAt(i) != '"' && col < width) {
+						int v = boardSection.charAt(i) - '0';
+						if (v >= 0 && v <= 2) {
+							chessBoard[col][row] = v;
+							col++;
+						}
+						i++;
+					}
+					row++;
+				}
+			}
+		}
+
+		// 解析历史记录
+		his.clear();
+		int histStart = json.indexOf("\"history\":");
+		if (histStart > 0) {
+			int arrStart = json.indexOf('[', histStart);
+			int arrEnd = json.lastIndexOf(']', json.indexOf(']', arrStart + 1) + 1);
+			String histSection = json.substring(arrStart, arrEnd + 1);
+			int i = 0;
+			while (i < histSection.length()) {
+				int xIdx = histSection.indexOf("\"x\":", i);
+				int yIdx = histSection.indexOf("\"y\":", xIdx);
+				if (xIdx < 0 || yIdx < 0) break;
+				int xEnd = indexOfAny(histSection, ",}", xIdx + 3);
+				int yEnd = indexOfAny(histSection, ",}", yIdx + 3);
+				if (xEnd < 0 || yEnd < 0) break;
+				int x = Integer.parseInt(histSection.substring(xIdx + 3, xEnd).trim());
+				int y = Integer.parseInt(histSection.substring(yIdx + 3, yEnd).trim());
+				Player player = his.count() % 2 == 0 ? Player.BLACK : Player.WHITE;
+				his.add(new Point(x, y), player);
+				i = yEnd + 1;
+			}
+		}
+
+		// 重新计算patternProgress
+		reCalcProgress();
+	}
+
+	static int extractJsonInt(String json, String key) {
+		String pattern = "\"" + key + "\":";
+		int idx = json.indexOf(pattern);
+		if (idx < 0) return -1;
+		int start = idx + pattern.length();
+		int end = start;
+		while (end < json.length() && (Character.isDigit(json.charAt(end)) || json.charAt(end) == '-')) end++;
+		try { return Integer.parseInt(json.substring(start, end)); }
+		catch (NumberFormatException e) { return -1; }
+	}
+
+	static String extractJsonString(String json, String key) {
+		String pattern = "\"" + key + "\":";
+		int idx = json.indexOf(pattern);
+		if (idx < 0) return null;
+		int start = json.indexOf('"', idx + pattern.length());
+		if (start < 0) return null;
+		int end = json.indexOf('"', start + 1);
+		return end > start ? json.substring(start + 1, end) : null;
+	}
+
+	static int indexOfAny(String s, String chars, int fromIndex) {
+		for (int i = fromIndex; i < s.length(); i++) {
+			if (chars.indexOf(s.charAt(i)) >= 0) return i;
+		}
+		return -1;
 	}
 
 	public void review(int i) {

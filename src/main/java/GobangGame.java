@@ -53,12 +53,16 @@ public class GobangGame {
 	}
 
 	/** 当前AI难度，null表示非人机对局（自动/双人） */
-	static Level currentLevel = Level.EASY;
+	static Level currentLevel = Level.BEGINNER;
+
+	/** 全局排行榜 */
+	static final Ranking ranking = new Ranking();
 
 	static enum Level {
+		BEGINNER("入门",RandomAI.class),
 		EASY("简单",AI.Default.class),
-		NORMAL("中等",SmartEvalAI.class),
-		DIFFICULTY("困难",SmartSearchAI.class),
+		NORMAL("普通",SmartEvalAI.class),
+		HARD("困难",SmartSearchAI.class),
 		;
 		public final String name;
 		public final Class<? extends AI> value;
@@ -123,7 +127,7 @@ public class GobangGame {
 			m_main.add(new JMenuItem("开始游戏(执黑)")).addActionListener(new ActionListener() {
 				public void actionPerformed(ActionEvent e) {
 					if (!panel.confirmNewGame()) return;
-					currentLevel = currentLevel != null ? currentLevel : Level.EASY;
+					currentLevel = currentLevel != null ? currentLevel : Level.BEGINNER;
 					panel.chess.initGame(true, false, currentLevel.value);
 					SoundManager.playGameStart();
 					panel.resetIdleTimer();
@@ -134,7 +138,7 @@ public class GobangGame {
 			m_main.add(new JMenuItem("开始游戏(执白)")).addActionListener(new ActionListener() {
 				public void actionPerformed(ActionEvent e) {
 					if (!panel.confirmNewGame()) return;
-					currentLevel = currentLevel != null ? currentLevel : Level.EASY;
+					currentLevel = currentLevel != null ? currentLevel : Level.BEGINNER;
 					panel.chess.initGame(false, true, currentLevel.value);
 					SoundManager.playGameStart();
 					panel.resetIdleTimer();
@@ -301,8 +305,62 @@ public class GobangGame {
 				}
 			});
 
+			// 网页对局服务
+			final WebServer webServer = new WebServer(panel.chess, () -> {
+				javax.swing.SwingUtilities.invokeLater(() -> panel.repaint());
+			});
+			JCheckBoxMenuItem webToggle = new JCheckBoxMenuItem("网页对局", false);
+			// 收集需要在网页模式下变灰的菜单
+			final JMenu[] greyMenus = {m_main, m_diff, m_auto, m_his, m_review};
+			webToggle.addActionListener(new ActionListener() {
+				public void actionPerformed(ActionEvent e) {
+					if (webToggle.isSelected()) {
+						try {
+							// 同步AI难度到WebServer
+							if (GobangGame.currentLevel != null) {
+								webServer.setAiClass(GobangGame.currentLevel.value);
+							}
+							webServer.start(8080);
+							panel.webMode = true;
+							panel.stopIdleTimer();
+							// 菜单变灰
+							for (JMenu m : greyMenus) m.setEnabled(false);
+							setTitle(GAME_VERSION_STR + " [网页模式 http://localhost:8080]");
+							panel.repaint();
+							JOptionPane.showMessageDialog(panel,
+									"网页对局已开启！\n\n"
+									+ "地址: http://localhost:8080\n\n"
+									+ "在浏览器中选择对局模式开始游戏\n"
+									+ "Swing界面已暂停操作",
+									"网页对局", JOptionPane.INFORMATION_MESSAGE);
+						} catch (Exception ex) {
+							webToggle.setSelected(false);
+							JOptionPane.showMessageDialog(panel,
+									"启动失败: " + ex.getMessage(),
+									"错误", JOptionPane.ERROR_MESSAGE);
+						}
+					} else {
+						webServer.stop();
+						panel.webMode = false;
+						// 恢复菜单
+						for (JMenu m : greyMenus) m.setEnabled(true);
+						panel.resetIdleTimer();
+						setTitle(GAME_VERSION_STR);
+						// 棋盘保持网页模式下的最终状态，不重置
+						panel.repaint();
+					}
+				}
+			});
+
 			m_help.add(soundToggle);
 			m_help.add(forbiddenToggle);
+			m_help.add(webToggle);
+			m_help.addSeparator();
+			m_help.add(new JMenuItem("排行榜")).addActionListener(new ActionListener() {
+				public void actionPerformed(ActionEvent e) {
+					showRankingDialog(panel);
+				}
+			});
 			m_help.addSeparator();
 			m_help.add(new JMenuItem("关于")).addActionListener(new ActionListener() {
 				public void actionPerformed(ActionEvent e) {
@@ -317,6 +375,41 @@ public class GobangGame {
 			menuBar.add(m_help);
 			this.setJMenuBar(menuBar);
 			panel.setReviewMenu(false);
+		}
+
+		private void showRankingDialog(ChessPanel panel) {
+			java.util.List<Ranking.Record> list = GobangGame.ranking.getRecords();
+			StringBuilder sb = new StringBuilder();
+			sb.append("<html><body style='font-family:微软雅黑;'>");
+			sb.append("<h3 style='text-align:center'>🏆 人机对局排行榜</h3>");
+			if (list.isEmpty()) {
+				sb.append("<p style='text-align:center;color:gray'>暂无记录，赢一局人机对局即可上榜</p>");
+			} else {
+				sb.append("<table border='0' cellpadding='4' cellspacing='0' style='margin:auto'>");
+				sb.append("<tr style='background:#ddd;color:#333'><th>名次</th><th>玩家</th><th>得分</th><th>难度</th><th>执子</th><th>步数</th><th>禁手</th></tr>");
+				for (int i = 0; i < list.size(); i++) {
+					Ranking.Record r = list.get(i);
+					String bg = (i % 2 == 0) ? "#f8f8f8" : "#eee";
+					String medal = i == 0 ? "🥇 " : i == 1 ? "🥈 " : i == 2 ? "🥉 " : (i + 1) + "";
+					String colorStr = "BLACK".equals(r.color) ? "●黑" : "○白";
+					sb.append("<tr style='background:").append(bg).append("'>");
+					sb.append("<td align='center'>").append(medal).append("</td>");
+					sb.append("<td>").append(r.name).append("</td>");
+					sb.append("<td align='right'><b>").append(r.score).append("</b></td>");
+					sb.append("<td align='center'>").append(r.level).append("</td>");
+					sb.append("<td align='center'>").append(colorStr).append("</td>");
+					sb.append("<td align='center'>").append(r.steps).append("</td>");
+					sb.append("<td align='center'>").append(r.forbidden ? "✓" : "").append("</td>");
+					sb.append("</tr>");
+				}
+				sb.append("</table>");
+			}
+			sb.append("</body></html>");
+			javax.swing.JLabel label = new javax.swing.JLabel(sb.toString());
+			javax.swing.JScrollPane scroll = new javax.swing.JScrollPane(label);
+			scroll.setPreferredSize(new java.awt.Dimension(500, 360));
+			scroll.setBorder(null);
+			JOptionPane.showMessageDialog(panel, scroll, "排行榜", JOptionPane.PLAIN_MESSAGE);
 		}
 	}
 }
@@ -346,6 +439,8 @@ class ChessPanel extends JPanel {
 
 	JMenu reviewMenu;
 	Chess chess;
+	/** 网页模式开启时，Swing棋盘暂停交互 */
+	boolean webMode = false;
 
 	// 鼠标悬停位置（棋盘坐标），-1表示无效
 	private int hoverX = -1, hoverY = -1;
@@ -406,6 +501,9 @@ class ChessPanel extends JPanel {
 			}
 
 			public void mouseReleased(MouseEvent e) {
+				// 网页模式下暂停Swing棋盘交互
+				if (webMode) return;
+
 				// 移动距离超过阈值视为拖拽，忽略
 				int dx = e.getX() - pressX;
 				int dy = e.getY() - pressY;
@@ -484,6 +582,25 @@ class ChessPanel extends JPanel {
 				SoundManager.playDraw();
 			} else if (chess.winner.isHuman()) {
 				SoundManager.playVictory();
+				// 人机对局胜利时记录得分
+				if (GobangGame.currentLevel != null) {
+					String levelName = GobangGame.currentLevel.name;
+					String color = chess.winner == Player.BLACK ? "BLACK" : "WHITE";
+					int steps = chess.his.count();
+					boolean forbidden = chess.forbiddenMoveRule;
+					int score = Ranking.calcScore(steps, levelName, forbidden);
+					String name = JOptionPane.showInputDialog(this,
+							"恭喜获胜！得分: " + score + "\n请输入你的名字：",
+							"上榜", JOptionPane.PLAIN_MESSAGE);
+					if (name != null && !name.trim().isEmpty()) {
+						int rank = GobangGame.ranking.addRecord(name.trim(), score, levelName, color, steps, forbidden);
+						if (rank > 0) {
+							JOptionPane.showMessageDialog(this,
+									"得分 " + score + "，排名第 " + rank + " 名！",
+									"排行榜", JOptionPane.INFORMATION_MESSAGE);
+						}
+					}
+				}
 			} else {
 				SoundManager.playDefeat();
 			}
@@ -541,6 +658,25 @@ class ChessPanel extends JPanel {
 		drawHoverPreview(g);
 		drawWinLine(g);
 		drawStatusBar(g);
+
+		// 网页模式下覆盖半透明遮罩和提示
+		if (webMode) {
+			Composite oldComp = g.getComposite();
+			g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.7f));
+			g.setColor(new Color(40, 40, 40));
+			g.fillRect(0, STATUS_H + 4, getWidth(), getHeight() - STATUS_H - 4);
+			g.setComposite(oldComp);
+
+			g.setColor(new Color(200, 200, 200));
+			g.setFont(new Font("微软雅黑", Font.BOLD, 20));
+			FontMetrics fm2 = g.getFontMetrics();
+			String hint = "网页对局模式已开启";
+			g.drawString(hint, (getWidth() - fm2.stringWidth(hint)) / 2, getHeight() / 2 - 10);
+			g.setFont(new Font("微软雅黑", Font.PLAIN, 14));
+			fm2 = g.getFontMetrics();
+			String hint2 = "请在浏览器中操作  http://localhost:8080";
+			g.drawString(hint2, (getWidth() - fm2.stringWidth(hint2)) / 2, getHeight() / 2 + 20);
+		}
 	}
 
 	private void drawPieces(Graphics2D g) {
@@ -684,6 +820,9 @@ class ChessPanel extends JPanel {
 			}
 			if (chess.forbiddenMoveRule) {
 				info += "  [禁手]";
+			}
+			if (webMode) {
+				info += "  [网页模式]";
 			}
 			g.setColor(STATUS_TEXT_DIM);
 			int infoW = fm.stringWidth(info);

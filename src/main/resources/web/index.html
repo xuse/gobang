@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>五子棋网页对局</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:'Microsoft YaHei',sans-serif; background:#2c2c2c; color:#eee;
+  display:flex; flex-direction:column; align-items:center; min-height:100vh; padding:16px; }
+h2 { margin-bottom:8px; }
+#phase-bar { font-size:16px; margin:6px 0; padding:8px 24px; border-radius:8px;
+  background:#333; text-align:center; min-width:340px; transition:background 0.3s; }
+#info { font-size:13px; color:#aaa; margin-bottom:6px; min-height:18px; }
+canvas { cursor:pointer; border-radius:4px; box-shadow:0 4px 20px rgba(0,0,0,0.5); }
+.panel { background:#383838; border-radius:10px; padding:20px 28px; margin:12px 0;
+  text-align:center; min-width:320px; }
+.panel h3 { margin-bottom:12px; font-size:17px; }
+.btn { font-size:15px; padding:9px 22px; margin:5px; border:none; border-radius:6px;
+  cursor:pointer; color:#fff; transition:background 0.2s; }
+.btn-blue { background:#4a90d9; } .btn-blue:hover { background:#357abd; }
+.btn-green { background:#3a9a5c; } .btn-green:hover { background:#2d7a48; }
+.btn-orange { background:#d48a29; } .btn-orange:hover { background:#b87420; }
+.btn-gray { background:#666; } .btn-gray:hover { background:#555; }
+.btn:disabled { background:#444!important; cursor:default; color:#888; }
+input.code-input { font-size:22px; width:120px; text-align:center; padding:6px;
+  border:2px solid #666; border-radius:6px; background:#2a2a2a; color:#fff;
+  letter-spacing:8px; margin:8px; }
+.invite-code { font-size:32px; letter-spacing:12px; color:#4a90d9;
+  font-weight:bold; margin:10px 0; }
+#msg { margin-top:6px; font-size:13px; color:#f88; min-height:18px; }
+.hidden { display:none!important; }
+.ranking-table { width:100%; border-collapse:collapse; margin-top:8px; font-size:14px; }
+.ranking-table th { background:#555; padding:6px 8px; }
+.ranking-table td { padding:5px 8px; border-bottom:1px solid #444; }
+.ranking-table tr:hover { background:#444; }
+.medal { font-size:16px; }
+.score-popup { background:#2a5a2a; border:2px solid #4a9a4a; border-radius:10px;
+  padding:16px 24px; margin:8px 0; text-align:center; }
+.score-popup .score-val { font-size:28px; font-weight:bold; color:#4adf4a; }
+input.name-input { font-size:16px; width:160px; text-align:center; padding:6px 10px;
+  border:2px solid #666; border-radius:6px; background:#2a2a2a; color:#fff; margin:8px; }
+</style></head><body>
+<h2>五子棋网页对局</h2>
+<div id="phase-bar">加载中...</div>
+<div id="info"></div>
+
+<!-- 开局选择面板 -->
+<div id="lobby" class="panel">
+  <h3>选择对局模式</h3>
+  <div style="margin-bottom:12px">
+    <label style="margin-right:16px">AI难度:
+      <select id="ai-level" style="margin-left:6px;padding:4px 8px;border-radius:4px;background:#2a2a2a;color:#fff;border:1px solid #555">
+        <option value="BEGINNER">入门</option>
+        <option value="EASY">简单</option>
+        <option value="NORMAL" selected>普通</option>
+        <option value="HARD">困难</option>
+      </select>
+    </label>
+    <label>禁手规则:
+      <input type="checkbox" id="forbidden-rule" checked style="margin-left:6px;transform:scale(1.2)">
+    </label>
+  </div>
+  <button class="btn btn-blue" onclick="startGame('PVE_BLACK')">人机对局（执黑）</button><br>
+  <button class="btn btn-blue" onclick="startGame('PVE_WHITE')">人机对局（执白）</button><br>
+  <button class="btn btn-orange" onclick="startGame('AUTO')">AI自动对局</button><br>
+  <button class="btn btn-green" onclick="showPvpSetup()">双人远程对局</button>
+  <hr style="border-color:#555;margin:12px 0">
+  <button class="btn btn-gray" onclick="showRanking()">🏆 排行榜</button>
+</div>
+
+<!-- PVP设置面板 -->
+<div id="pvp-setup" class="panel hidden">
+  <h3>双人对局 - 选择执子</h3>
+  <button class="btn btn-blue" onclick="startPvp('BLACK')">我执黑（先手）</button>
+  <button class="btn btn-gray" onclick="startPvp('WHITE')">我执白（后手）</button><br>
+  <button class="btn btn-gray" style="margin-top:12px" onclick="hidePvpSetup()">返回</button>
+</div>
+
+<!-- 邀请码展示面板（发起者） -->
+<div id="invite-show" class="panel hidden">
+  <h3>等待对手加入</h3>
+  <div>将邀请码发送给对手：</div>
+  <div class="invite-code" id="invite-code-display"></div>
+  <div style="color:#aaa;font-size:13px">对手在网页中输入此邀请码即可加入对局</div>
+</div>
+
+<!-- 加入对局面板（访客） -->
+<div id="join-panel" class="panel hidden">
+  <h3>加入对局</h3>
+  <div style="margin-bottom:8px">输入邀请码加入对局，或直接观战</div>
+  <input class="code-input" id="join-code" maxlength="4" placeholder="邀请码">
+  <br>
+  <button class="btn btn-green" onclick="joinWithCode()">加入对局</button>
+  <button class="btn btn-gray" onclick="joinAsSpectator()">观战</button>
+</div>
+
+<!-- 排行榜面板 -->
+<div id="ranking-panel" class="panel hidden" style="min-width:420px">
+  <h3>🏆 人机对局排行榜</h3>
+  <div id="ranking-body" style="max-height:400px;overflow-y:auto"></div>
+  <button class="btn btn-gray" style="margin-top:12px" onclick="showOnly('lobby')">返回</button>
+</div>
+
+<!-- 得分提交面板 -->
+<div id="score-panel" class="panel hidden">
+  <h3>🎉 恭喜获胜！</h3>
+  <div class="score-popup">
+    <div>你的得分</div>
+    <div class="score-val" id="score-val"></div>
+    <div style="font-size:12px;color:#aaa;margin-top:4px" id="score-detail"></div>
+  </div>
+  <div style="margin-top:8px">输入名字上榜：</div>
+  <input class="name-input" id="player-name" maxlength="12" placeholder="你的名字">
+  <br>
+  <button class="btn btn-green" onclick="submitScore()">提交</button>
+  <button class="btn btn-gray" onclick="hideScorePanel()">跳过</button>
+</div>
+
+<canvas id="board" class="hidden"></canvas>
+<div id="game-actions" class="hidden" style="text-align:center;margin-top:8px">
+  <button class="btn btn-orange" id="new-game-btn" onclick="newGame()">新游戏</button>
+  <button class="btn btn-gray" onclick="showRanking()">🏆 排行榜</button>
+</div>
+<div id="msg"></div>
+
+<script>
+const C = document.getElementById('board');
+const ctx = C.getContext('2d');
+let state = null, myToken = null, myRole = null;
+let hoverX = -1, hoverY = -1;
+let prevPhase = null, scoreHandled = false;
+const GRID = 36, PAD = 40;
+
+// ===== 面板切换 =====
+function showOnly(id) {
+  ['lobby','pvp-setup','invite-show','join-panel','ranking-panel','score-panel'].forEach(p =>
+    document.getElementById(p).classList.add('hidden'));
+  if (id) document.getElementById(id).classList.remove('hidden');
+}
+function showPvpSetup() { showOnly('pvp-setup'); }
+function hidePvpSetup() { showOnly('lobby'); }
+
+function showBoard(show) {
+  document.getElementById('board').classList.toggle('hidden', !show);
+  document.getElementById('game-actions').classList.toggle('hidden', !show);
+}
+
+// ===== 开始游戏 =====
+async function startGame(mode) {
+  const level = document.getElementById('ai-level').value;
+  const forbidden = document.getElementById('forbidden-rule').checked;
+  const r = await fetch('/api/start', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({mode:mode, level:level, forbidden:forbidden})
+  });
+  const d = await r.json();
+  if (d.error) { setMsg(d.error); return; }
+  myToken = d.token; myRole = d.role;
+  showOnly(null); showBoard(true);
+  setMsg(''); scoreHandled = false;
+}
+
+async function startPvp(color) {
+  const forbidden = document.getElementById('forbidden-rule').checked;
+  const r = await fetch('/api/start', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({mode:'PVP', color:color, forbidden:forbidden})
+  });
+  const d = await r.json();
+  if (d.error) { setMsg(d.error); return; }
+  myToken = d.token; myRole = d.role;
+  document.getElementById('invite-code-display').textContent = d.inviteCode;
+  showOnly('invite-show'); showBoard(true);
+  setMsg('');
+}
+
+// ===== 加入对局 =====
+async function joinWithCode() {
+  const code = document.getElementById('join-code').value.trim();
+  if (!code) { setMsg('请输入邀请码'); return; }
+  const r = await fetch('/api/join', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({inviteCode:code})
+  });
+  const d = await r.json();
+  myToken = d.token; myRole = d.role;
+  if (myRole === 'SPECTATOR') { setMsg('邀请码无效或对局已满，已作为观众加入'); }
+  else { setMsg(''); }
+  showOnly(null); showBoard(true);
+}
+
+async function joinAsSpectator() {
+  const r = await fetch('/api/join', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({})
+  });
+  const d = await r.json();
+  myToken = d.token; myRole = d.role;
+  showOnly(null); showBoard(true);
+  setMsg('');
+}
+
+function newGame() {
+  myToken = null; myRole = null; prevPhase = null; scoreHandled = false;
+  showBoard(false); showOnly('lobby');
+  setMsg('');
+}
+
+function setMsg(t) { document.getElementById('msg').textContent = t; }
+
+// ===== 绘制 =====
+function resize() {
+  if (!state) return;
+  C.width = (state.width - 1) * GRID + PAD * 2;
+  C.height = (state.height - 1) * GRID + PAD * 2;
+  draw();
+}
+
+function draw() {
+  if (!state) return;
+  const W = state.width, H = state.height;
+  ctx.fillStyle = '#deb887'; ctx.fillRect(0, 0, C.width, C.height);
+  ctx.strokeStyle = '#3c2810'; ctx.lineWidth = 1;
+  for (let i = 0; i < W; i++) {
+    ctx.beginPath(); ctx.moveTo(PAD+i*GRID,PAD); ctx.lineTo(PAD+i*GRID,PAD+(H-1)*GRID); ctx.stroke();
+  }
+  for (let j = 0; j < H; j++) {
+    ctx.beginPath(); ctx.moveTo(PAD,PAD+j*GRID); ctx.lineTo(PAD+(W-1)*GRID,PAD+j*GRID); ctx.stroke();
+  }
+  if (W >= 13 && H >= 13) {
+    const cx=Math.floor(W/2),cy=Math.floor(H/2);
+    [[cx,cy],[3,3],[W-4,3],[3,H-4],[W-4,H-4]].forEach(([x,y])=>{
+      ctx.beginPath(); ctx.arc(PAD+x*GRID,PAD+y*GRID,3.5,0,Math.PI*2); ctx.fillStyle='#3c2810'; ctx.fill();
+    });
+  }
+  ctx.fillStyle='#6b4c2a'; ctx.font='11px Consolas'; ctx.textAlign='center';
+  for (let i=0;i<W;i++) ctx.fillText(i,PAD+i*GRID,PAD-10);
+  ctx.textAlign='right';
+  for (let j=0;j<H;j++) ctx.fillText(j,PAD-10,PAD+j*GRID+4);
+  for (let j=0;j<H;j++) for (let i=0;i<W;i++) {
+    const v=state.board[j][i]; if(v===0) continue;
+    drawStone(PAD+i*GRID,PAD+j*GRID,v===1?'black':'white');
+  }
+  if (state.lastMove) {
+    const lx=PAD+state.lastMove.x*GRID, ly=PAD+state.lastMove.y*GRID;
+    const v=state.board[state.lastMove.y][state.lastMove.x];
+    ctx.beginPath(); ctx.arc(lx,ly,5,0,Math.PI*2);
+    ctx.fillStyle=v===1?'#fff':'#000'; ctx.fill();
+  }
+  if (state.winPoints) {
+    ctx.strokeStyle='rgba(220,40,40,0.7)'; ctx.lineWidth=3; ctx.beginPath();
+    const p0=state.winPoints[0],p4=state.winPoints[4];
+    ctx.moveTo(PAD+p0.x*GRID,PAD+p0.y*GRID); ctx.lineTo(PAD+p4.x*GRID,PAD+p4.y*GRID); ctx.stroke();
+    state.winPoints.forEach(p=>{
+      ctx.beginPath(); ctx.arc(PAD+p.x*GRID,PAD+p.y*GRID,16,0,Math.PI*2);
+      ctx.fillStyle='rgba(220,40,40,0.25)'; ctx.fill();
+    });
+  }
+  if (hoverX>=0 && canMove() && state.board[hoverY] && state.board[hoverY][hoverX]===0) {
+    ctx.globalAlpha=0.35;
+    drawStone(PAD+hoverX*GRID,PAD+hoverY*GRID,state.next==='BLACK'?'black':'white');
+    ctx.globalAlpha=1;
+  }
+}
+
+function drawStone(cx,cy,color) {
+  const r=GRID/2-2;
+  const grad=ctx.createRadialGradient(cx-r/3,cy-r/3,r/6,cx,cy,r);
+  if(color==='black'){grad.addColorStop(0,'#555');grad.addColorStop(1,'#000');}
+  else{grad.addColorStop(0,'#fff');grad.addColorStop(1,'#ccc');}
+  ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2);
+  ctx.fillStyle=grad; ctx.fill();
+  ctx.strokeStyle=color==='black'?'#222':'#999'; ctx.lineWidth=0.5; ctx.stroke();
+}
+
+function canMove() {
+  if(!state||!state.next||!myRole||state.phase!=='PLAYING') return false;
+  return (myRole==='BLACK'&&state.next==='BLACK')||(myRole==='WHITE'&&state.next==='WHITE');
+}
+
+// ===== 状态更新 =====
+function updateUI() {
+  if (!state) return;
+  const bar = document.getElementById('phase-bar');
+  const info = document.getElementById('info');
+  const roleMap = {BLACK:'你是黑方 ●', WHITE:'你是白方 ○', SPECTATOR:'观战中'};
+  const roleStr = roleMap[myRole] || '';
+  let infoText = roleStr;
+  if (state.forbidden) infoText += '  [禁手]';
+  if (state.steps > 0) infoText += '  第' + state.steps + '手';
+  info.textContent = infoText;
+
+  // 新游戏按钮：只对参与对局的玩家显示，观战者不显示
+  const newGameBtn = document.getElementById('new-game-btn');
+  if (newGameBtn) {
+    newGameBtn.style.display = (myRole === 'SPECTATOR') ? 'none' : 'inline-block';
+  }
+
+  // 阶段状态栏
+  if (state.phase === 'IDLE') {
+    bar.textContent = '请选择对局模式'; bar.style.background = '#333';
+  } else if (state.phase === 'WAITING') {
+    bar.textContent = '⏳ 等待对手加入...'; bar.style.background = '#7a6520';
+  } else if (state.phase === 'OVER') {
+    if (state.winner) {
+      const w = state.winner === 'BLACK' ? '黑方' : '白方';
+      bar.textContent = '🏆 ' + w + '获胜！';
+      bar.style.background = (state.winner === myRole) ? '#0a7a3c' : '#a02828';
+    } else {
+      bar.textContent = '⚔ 平局'; bar.style.background = '#666';
+    }
+  } else if (state.phase === 'PLAYING') {
+    document.getElementById('invite-show').classList.add('hidden');
+    const turn = state.next === 'BLACK' ? '黑方' : '白方';
+    if (state.gameMode === 'AUTO') {
+      bar.textContent = '🤖 AI自动对局中... ' + turn + '思考中'; bar.style.background = '#555';
+    } else if (canMove()) {
+      bar.textContent = '轮到你落子 (' + turn + ')'; bar.style.background = '#2a6db5';
+    } else {
+      bar.textContent = '等待' + turn + '落子...'; bar.style.background = '#333';
+    }
+  }
+
+  // 首次访问且有对局进行中 -> 显示加入面板
+  if (!myRole && (state.phase === 'WAITING' || state.phase === 'PLAYING')) {
+    showOnly('join-panel'); showBoard(true);
+  }
+}
+
+// ===== SSE =====
+function connectSSE() {
+  const es = new EventSource('/api/events');
+  es.onmessage = e => {
+    const oldPhase = state ? state.phase : null;
+    state = JSON.parse(e.data); resize(); updateUI();
+    if (oldPhase === 'PLAYING' && state.phase === 'OVER') {
+      checkScoreSubmit();
+    }
+  };
+  es.onerror = () => { setTimeout(connectSSE, 2000); es.close(); };
+}
+connectSSE();
+
+// ===== 落子 =====
+C.addEventListener('click', async e => {
+  if (!canMove()) return;
+  const rect = C.getBoundingClientRect();
+  const bx = Math.round((e.clientX-rect.left-PAD)/GRID);
+  const by = Math.round((e.clientY-rect.top-PAD)/GRID);
+  if (bx<0||bx>=state.width||by<0||by>=state.height) return;
+  if (state.board[by][bx]!==0) return;
+  const r = await fetch('/api/move', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({token:myToken, x:bx, y:by})
+  });
+  const d = await r.json();
+  if (d.error) setMsg(d.error); else setMsg('');
+});
+
+C.addEventListener('mousemove', e => {
+  if (!state) return;
+  const rect = C.getBoundingClientRect();
+  const nx = Math.round((e.clientX-rect.left-PAD)/GRID);
+  const ny = Math.round((e.clientY-rect.top-PAD)/GRID);
+  if (nx!==hoverX||ny!==hoverY) { hoverX=nx; hoverY=ny; draw(); }
+});
+C.addEventListener('mouseleave', () => { hoverX=-1; hoverY=-1; draw(); });
+
+// ===== 排行榜 =====
+async function showRanking() {
+  showOnly('ranking-panel');
+  const body = document.getElementById('ranking-body');
+  body.innerHTML = '<div style="color:#aaa">加载中...</div>';
+  try {
+    const r = await fetch('/api/ranking');
+    const list = await r.json();
+    if (!list.length) {
+      body.innerHTML = '<div style="color:#aaa;padding:20px">暂无记录，赢一局人机对局即可上榜</div>';
+      return;
+    }
+    const medals = ['🥇','🥈','🥉'];
+    let html = '<table class="ranking-table"><tr><th>名次</th><th>玩家</th><th>得分</th><th>难度</th><th>执子</th><th>步数</th><th>禁手</th></tr>';
+    list.forEach((r,i) => {
+      const medal = i < 3 ? '<span class="medal">' + medals[i] + '</span>' : (i+1);
+      const color = r.color === 'BLACK' ? '●黑' : '○白';
+      html += '<tr><td style="text-align:center">' + medal + '</td><td>' + esc(r.name) + '</td><td style="text-align:right;font-weight:bold">' + r.score + '</td><td style="text-align:center">' + esc(r.level) + '</td><td style="text-align:center">' + color + '</td><td style="text-align:center">' + r.steps + '</td><td style="text-align:center">' + (r.forbidden ? '✓' : '') + '</td></tr>';
+    });
+    html += '</table>';
+    body.innerHTML = html;
+  } catch(e) {
+    body.innerHTML = '<div style="color:#f88">加载失败</div>';
+  }
+}
+
+function esc(s) {
+  const d = document.createElement('div'); d.textContent = s; return d.innerHTML;
+}
+
+// ===== 得分计算与提交 =====
+function calcScore(steps, level, forbidden) {
+  const base = Math.max(1, 200 - steps);
+  let mult = 1;
+  if (level === '普通' || level === 'NORMAL') mult = 2;
+  else if (level === '困难' || level === 'HARD') mult = 3;
+  return Math.floor(base * mult * (forbidden ? 1.2 : 1.0));
+}
+
+let pendingScore = null;
+
+function checkScoreSubmit() {
+  if (scoreHandled) return;
+  if (!state || state.phase !== 'OVER') return;
+  if (!state.winner || !myRole) return;
+  if (myRole === 'SPECTATOR') return;
+  if (state.winner !== myRole) return;
+  // 只有人机模式才计分
+  if (state.gameMode !== 'PVE_BLACK' && state.gameMode !== 'PVE_WHITE') return;
+  scoreHandled = true;
+
+  const score = calcScore(state.steps, state.aiLevel, state.forbidden);
+  pendingScore = {
+    score: score,
+    level: state.aiLevel || '',
+    color: myRole,
+    steps: state.steps,
+    forbidden: state.forbidden
+  };
+  document.getElementById('score-val').textContent = score;
+  const levelMap = {'简单':'×1','中等':'×2','困难':'×3'};
+  document.getElementById('score-detail').textContent =
+    '基础(' + Math.max(1,200-state.steps) + ') × 难度(' + (levelMap[state.aiLevel]||'×1') + ')' +
+    (state.forbidden ? ' × 禁手(×1.2)' : '');
+  document.getElementById('score-panel').classList.remove('hidden');
+}
+
+async function submitScore() {
+  const name = document.getElementById('player-name').value.trim();
+  if (!name) { setMsg('请输入名字'); return; }
+  if (!pendingScore) return;
+  try {
+    const r = await fetch('/api/ranking', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({name:name, score:pendingScore.score, level:pendingScore.level,
+        color:pendingScore.color, steps:pendingScore.steps, forbidden:pendingScore.forbidden?1:0})
+    });
+    const d = await r.json();
+    pendingScore = null;
+    document.getElementById('score-panel').classList.add('hidden');
+    if (d.rank > 0) setMsg('🏆 得分 ' + d.rank + ' 名！');
+    else setMsg('已提交');
+  } catch(e) { setMsg('提交失败'); }
+}
+
+function hideScorePanel() {
+  pendingScore = null;
+  document.getElementById('score-panel').classList.add('hidden');
+}
+</script></body></html>
