@@ -40,6 +40,7 @@ import javax.swing.UIManager;
 public class GobangGame {
 	private static final String GAME_VERSION_STR = "五子棋游戏 版本1.16";
 
+	
 	public static void main(String[] args) {
 		try {
 			UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
@@ -51,6 +52,23 @@ public class GobangGame {
 		game.setVisible(true);
 	}
 
+	/** 当前AI难度，null表示非人机对局（自动/双人） */
+	static Level currentLevel = Level.EASY;
+
+	static enum Level {
+		EASY("简单",AI.Default.class),
+		NORMAL("中等",SmartEvalAI.class),
+		DIFFICULTY("困难",SmartSearchAI.class),
+		;
+		public final String name;
+		public final Class<? extends AI> value;
+
+		private Level(String name, Class<? extends AI> clz) {
+			this.name = name;
+			this.value = clz;
+		}
+	}
+	
 	static class GameFrame extends JFrame {
 		private static final long serialVersionUID = 1L;
 
@@ -80,22 +98,15 @@ public class GobangGame {
 			JMenu m_help = new JMenu("帮助");
 			panel.reviewMenu = m_review;
 
-			// AI难度选项
-			final String[] diffNames = {"简单", "中等", "困难"};
-			final Class<?>[] diffClasses = {AI.Default.class, SmartEvalAI.class, SmartSearchAI.class};
-			final int[] selectedDiff = {0};
-
+		
 			JMenu m_diff = new JMenu("AI难度");
 			javax.swing.ButtonGroup diffGroup = new javax.swing.ButtonGroup();
-			for (int d = 0; d < diffNames.length; d++) {
-				final int idx = d;
-				javax.swing.JRadioButtonMenuItem item = new javax.swing.JRadioButtonMenuItem(diffNames[d], d == selectedDiff[0]);
+			for (Level diff:Level.values()) {
+				javax.swing.JRadioButtonMenuItem item = new javax.swing.JRadioButtonMenuItem(diff.name, diff == currentLevel);
 				item.addActionListener(new ActionListener() {
-					@SuppressWarnings("unchecked")
 					public void actionPerformed(ActionEvent e) {
-						selectedDiff[0] = idx;
-						panel.aiDiffName = diffNames[idx];
-						Class<? extends AI> clz = (Class<? extends AI>) diffClasses[idx];
+						currentLevel = diff;
+						Class<? extends AI> clz = diff.value;
 						for (Player p : Player.values()) {
 							if (!p.isHuman() && p.getAi() != null) {
 								p.setAi(panel.chess.createAI(clz));
@@ -110,22 +121,20 @@ public class GobangGame {
 			}
 
 			m_main.add(new JMenuItem("开始游戏(执黑)")).addActionListener(new ActionListener() {
-				@SuppressWarnings("unchecked")
 				public void actionPerformed(ActionEvent e) {
 					if (!panel.confirmNewGame()) return;
-					panel.aiDiffName = diffNames[selectedDiff[0]];
-					panel.chess.initGame(true, false, (Class<? extends AI>) diffClasses[selectedDiff[0]]);
+					currentLevel = currentLevel != null ? currentLevel : Level.EASY;
+					panel.chess.initGame(true, false, currentLevel.value);
 					panel.resetIdleTimer();
 					panel.repaint();
 				}
 			});
 
 			m_main.add(new JMenuItem("开始游戏(执白)")).addActionListener(new ActionListener() {
-				@SuppressWarnings("unchecked")
 				public void actionPerformed(ActionEvent e) {
 					if (!panel.confirmNewGame()) return;
-					panel.aiDiffName = diffNames[selectedDiff[0]];
-					panel.chess.initGame(false, true, (Class<? extends AI>) diffClasses[selectedDiff[0]]);
+					currentLevel = currentLevel != null ? currentLevel : Level.EASY;
+					panel.chess.initGame(false, true, currentLevel.value);
 					panel.resetIdleTimer();
 					panel.repaint();
 				}
@@ -134,7 +143,7 @@ public class GobangGame {
 			m_main.add(new JMenuItem("开始游戏(自动)")).addActionListener(new ActionListener() {
 				public void actionPerformed(ActionEvent e) {
 					if (!panel.confirmNewGame()) return;
-					panel.aiDiffName = null;
+					currentLevel = null;
 					panel.chess.initGame(false, false);
 					panel.stopIdleTimer();
 					panel.repaint();
@@ -144,7 +153,7 @@ public class GobangGame {
 			m_main.add(new JMenuItem("开始游戏(双人对局)")).addActionListener(new ActionListener() {
 				public void actionPerformed(ActionEvent e) {
 					if (!panel.confirmNewGame()) return;
-					panel.aiDiffName = null;
+					currentLevel = null;
 					panel.chess.initGame(true, true);
 					panel.resetIdleTimer();
 					panel.repaint();
@@ -324,7 +333,6 @@ class ChessPanel extends JPanel {
 
 	JMenu reviewMenu;
 	Chess chess;
-	String aiDiffName = "困难";
 
 	// 鼠标悬停位置（棋盘坐标），-1表示无效
 	private int hoverX = -1, hoverY = -1;
@@ -631,8 +639,8 @@ class ChessPanel extends JPanel {
 			String info = "第 " + chess.his.count() + " 手";
 			if (chess.isReviewMode()) {
 				info += "  ▶ 复盘中";
-			} else if (aiDiffName != null) {
-				info += "  [" + aiDiffName + "]";
+			} else if (GobangGame.currentLevel != null) {
+				info += "  [" + GobangGame.currentLevel.name + "]";
 			}
 			g.setColor(STATUS_TEXT_DIM);
 			int infoW = fm.stringWidth(info);
