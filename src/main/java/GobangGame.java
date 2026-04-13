@@ -125,6 +125,7 @@ public class GobangGame {
 					if (!panel.confirmNewGame()) return;
 					currentLevel = currentLevel != null ? currentLevel : Level.EASY;
 					panel.chess.initGame(true, false, currentLevel.value);
+					SoundManager.playGameStart();
 					panel.resetIdleTimer();
 					panel.repaint();
 				}
@@ -135,6 +136,7 @@ public class GobangGame {
 					if (!panel.confirmNewGame()) return;
 					currentLevel = currentLevel != null ? currentLevel : Level.EASY;
 					panel.chess.initGame(false, true, currentLevel.value);
+					SoundManager.playGameStart();
 					panel.resetIdleTimer();
 					panel.repaint();
 				}
@@ -145,6 +147,7 @@ public class GobangGame {
 					if (!panel.confirmNewGame()) return;
 					currentLevel = null;
 					panel.chess.initGame(false, false);
+					SoundManager.playGameStart();
 					panel.stopIdleTimer();
 					panel.repaint();
 					panel.chess.startAuto(100);
@@ -155,6 +158,7 @@ public class GobangGame {
 					if (!panel.confirmNewGame()) return;
 					currentLevel = null;
 					panel.chess.initGame(true, true);
+					SoundManager.playGameStart();
 					panel.resetIdleTimer();
 					panel.repaint();
 				}
@@ -177,6 +181,7 @@ public class GobangGame {
 					int heightPx = (y - 1) * 30 + 130;
 					setSize(widthPx, heightPx);
 					panel.chess.initGame(true, false);
+					SoundManager.playGameStart();
 					panel.resetIdleTimer();
 					panel.repaint();
 				}
@@ -410,6 +415,7 @@ class ChessPanel extends JPanel {
 							JOptionPane.YES_NO_OPTION);
 					if (result == JOptionPane.YES_OPTION) {
 						chess.initGame(true, false);
+						SoundManager.playGameStart();
 						resetIdleTimer();
 						repaint();
 					}

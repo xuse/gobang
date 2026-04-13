@@ -113,6 +113,33 @@ public class SoundManager {
 		});
 	}
 
+	/** 开局音效：两个清亮的上行音，像棋子碰撞 */
+	public static void playGameStart() {
+		if (!enabled) return;
+		playAsync(() -> {
+			try {
+				int sampleRate = 22050;
+				int noteLen = sampleRate / 8;
+				int gapLen = sampleRate / 20;
+				int total = noteLen * 2 + gapLen;
+				byte[] buf = new byte[total];
+				double[] freqs = {660.0, 880.0}; // E5, A5
+				for (int n = 0; n < 2; n++) {
+					int offset = n * (noteLen + gapLen);
+					for (int i = 0; i < noteLen; i++) {
+						double t = (double) i / sampleRate;
+						double env = Math.exp(-t * 20);
+						env *= Math.min(1.0, i / (double) (sampleRate / 200));
+						double wave = Math.sin(2 * Math.PI * freqs[n] * t) * 0.7
+								+ Math.sin(2 * Math.PI * freqs[n] * 2 * t) * 0.3;
+						buf[offset + i] = (byte) (wave * env * 80);
+					}
+				}
+				playBuffer(buf, sampleRate);
+			} catch (Exception ignored) {}
+		});
+	}
+
 	/** 平局音效：平缓的单音渐弱 */
 	public static void playDraw() {
 		if (!enabled) return;
