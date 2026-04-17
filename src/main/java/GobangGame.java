@@ -360,7 +360,7 @@ public class GobangGame {
 			} else {
 				sb.append("<table border='0' cellpadding='5' cellspacing='0' width='100%'>");
 				sb.append("<tr style='background:#4a4a4a;color:#fff;font-size:12px'>");
-				sb.append("<th width='40'>名次</th><th>玩家</th><th width='50'>得分</th>");
+				sb.append("<th width='48'>名次</th><th>玩家</th><th width='50'>得分</th>");
 				sb.append("<th width='45'>难度</th><th width='40'>执子</th><th width='40'>步数</th><th width='35'>禁手</th></tr>");
 				for (int i = 0; i < list.size(); i++) {
 					Ranking.Record r = list.get(i);
@@ -381,9 +381,10 @@ public class GobangGame {
 				sb.append("</table>");
 			}
 			sb.append("</body></html>");
-			javax.swing.JLabel label = new javax.swing.JLabel(sb.toString());
-			label.setVerticalAlignment(javax.swing.SwingConstants.TOP);
-			javax.swing.JScrollPane scroll = new javax.swing.JScrollPane(label);
+			javax.swing.JEditorPane editorPane = new javax.swing.JEditorPane("text/html", sb.toString());
+			editorPane.setEditable(false);
+			editorPane.setBackground(Color.WHITE);
+			javax.swing.JScrollPane scroll = new javax.swing.JScrollPane(editorPane);
 			// 根据记录数动态调整高度，最多显示到满榜
 			int rowH = 24;
 			int headerH = 70;
