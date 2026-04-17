@@ -38,7 +38,7 @@ import javax.swing.UIManager;
  * @author Joey
  */
 public class GobangGame {
-	private static final String GAME_VERSION_STR = "五子棋游戏 版本1.16";
+	private static final String GAME_VERSION_STR = "五子棋游戏 版本2.0";
 
 	
 	public static void main(String[] args) {
@@ -353,35 +353,45 @@ public class GobangGame {
 		private void showRankingDialog(ChessPanel panel) {
 			java.util.List<Ranking.Record> list = GobangGame.ranking.getRecords();
 			StringBuilder sb = new StringBuilder();
-			sb.append("<html><body style='font-family:微软雅黑;'>");
-			sb.append("<h3 style='text-align:center'>🏆 人机对局排行榜</h3>");
+			sb.append("<html><body style='font-family:微软雅黑; margin:6px;'>");
+			sb.append("<div style='text-align:center; font-size:15px; font-weight:bold; padding:4px 0 8px 0'>🏆 人机对局排行榜</div>");
 			if (list.isEmpty()) {
 				sb.append("<p style='text-align:center;color:gray'>暂无记录，赢一局人机对局即可上榜</p>");
 			} else {
-				sb.append("<table border='0' cellpadding='4' cellspacing='0' style='margin:auto'>");
-				sb.append("<tr style='background:#ddd;color:#333'><th>名次</th><th>玩家</th><th>得分</th><th>难度</th><th>执子</th><th>步数</th><th>禁手</th></tr>");
+				sb.append("<table border='0' cellpadding='5' cellspacing='0' width='100%'>");
+				sb.append("<tr style='background:#4a4a4a;color:#fff;font-size:12px'>");
+				sb.append("<th width='40'>名次</th><th>玩家</th><th width='50'>得分</th>");
+				sb.append("<th width='45'>难度</th><th width='40'>执子</th><th width='40'>步数</th><th width='35'>禁手</th></tr>");
 				for (int i = 0; i < list.size(); i++) {
 					Ranking.Record r = list.get(i);
-					String bg = (i % 2 == 0) ? "#f8f8f8" : "#eee";
-					String medal = i == 0 ? "🥇 " : i == 1 ? "🥈 " : i == 2 ? "🥉 " : (i + 1) + "";
+					String bg = i < 3 ? "#fff8e1" : (i % 2 == 0) ? "#f8f8f8" : "#eeeeee";
+					String medal = i == 0 ? "🥇" : i == 1 ? "🥈" : i == 2 ? "🥉" : String.valueOf(i + 1);
 					String colorStr = "BLACK".equals(r.color) ? "●黑" : "○白";
-					sb.append("<tr style='background:").append(bg).append("'>");
+					String scoreStyle = i < 3 ? "font-size:13px;color:#c62828" : "font-size:12px";
+					sb.append("<tr style='background:").append(bg).append(";font-size:12px'>");
 					sb.append("<td align='center'>").append(medal).append("</td>");
 					sb.append("<td>").append(r.name).append("</td>");
-					sb.append("<td align='right'><b>").append(r.score).append("</b></td>");
+					sb.append("<td align='right' style='").append(scoreStyle).append("'><b>").append(r.score).append("</b></td>");
 					sb.append("<td align='center'>").append(r.level).append("</td>");
 					sb.append("<td align='center'>").append(colorStr).append("</td>");
 					sb.append("<td align='center'>").append(r.steps).append("</td>");
-					sb.append("<td align='center'>").append(r.forbidden ? "✓" : "").append("</td>");
+					sb.append("<td align='center'>").append(r.forbidden ? "✓" : "—").append("</td>");
 					sb.append("</tr>");
 				}
 				sb.append("</table>");
 			}
 			sb.append("</body></html>");
 			javax.swing.JLabel label = new javax.swing.JLabel(sb.toString());
+			label.setVerticalAlignment(javax.swing.SwingConstants.TOP);
 			javax.swing.JScrollPane scroll = new javax.swing.JScrollPane(label);
-			scroll.setPreferredSize(new java.awt.Dimension(500, 360));
-			scroll.setBorder(null);
+			// 根据记录数动态调整高度，最多显示到满榜
+			int rowH = 24;
+			int headerH = 70;
+			int contentH = headerH + Math.min(list.size(), 20) * rowH;
+			int height = Math.min(contentH + 10, 560);
+			scroll.setPreferredSize(new java.awt.Dimension(420, height));
+			scroll.setBorder(javax.swing.BorderFactory.createLineBorder(new Color(200, 200, 200)));
+			scroll.getViewport().setBackground(Color.WHITE);
 			JOptionPane.showMessageDialog(panel, scroll, "排行榜", JOptionPane.PLAIN_MESSAGE);
 		}
 	}

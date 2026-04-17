@@ -54,6 +54,34 @@ public class Ranking {
 
 	public Ranking() {
 		load();
+		if (records.isEmpty()) {
+			seedDefaults();
+		}
+	}
+
+	/** 预置示例记录，让排行榜初始不为空 */
+	private void seedDefaults() {
+		String[][] seeds = {
+			{"棋圣",  "540", "困难", "BLACK", "20", "true"},
+			{"高手",  "450", "困难", "WHITE", "25", "false"},
+			{"老王",  "380", "困难", "BLACK", "34", "false"},
+			{"小明",  "350", "中等", "WHITE", "22", "true"},
+			{"棋迷",  "300", "中等", "BLACK", "28", "false"},
+			{"阿花",  "260", "中等", "WHITE", "35", "true"},
+			{"新手",  "180", "简单", "BLACK", "21", "false"},
+			{"路人甲", "150", "简单", "WHITE", "30", "false"},
+			{"菜鸟",  "120", "简单", "BLACK", "45", "false"},
+			{"围观者", "80",  "简单", "WHITE", "60", "false"},
+		};
+		long baseTime = System.currentTimeMillis() - 86400000L * 30; // 30天前起
+		for (int i = 0; i < seeds.length; i++) {
+			String[] s = seeds[i];
+			records.add(new Record(s[0], Integer.parseInt(s[1]), s[2], s[3],
+					Integer.parseInt(s[4]), Boolean.parseBoolean(s[5]),
+					baseTime + i * 86400000L));
+		}
+		Collections.sort(records);
+		save();
 	}
 
 	/** 计算得分 */
