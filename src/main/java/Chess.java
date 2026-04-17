@@ -1201,6 +1201,7 @@ class History implements Serializable {
 				board[i][j] = 0;
 			}
 		}
+		chess.winPatternId = -1;
 	}
 
 	public void add(Point point, Player p) {
