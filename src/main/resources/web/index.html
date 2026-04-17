@@ -49,10 +49,10 @@ input.name-input { font-size:16px; width:160px; text-align:center; padding:6px 1
   <div style="margin-bottom:12px">
     <label style="margin-right:16px">AI难度:
       <select id="ai-level" style="margin-left:6px;padding:4px 8px;border-radius:4px;background:#2a2a2a;color:#fff;border:1px solid #555">
-        <option value="BEGINNER">入门</option>
-        <option value="EASY">简单</option>
-        <option value="NORMAL" selected>普通</option>
-        <option value="HARD">困难</option>
+        <option value="BEGINNER" selected>初学者</option>
+        <option value="EASY">入门</option>
+        <option value="NORMAL">进阶</option>
+        <option value="HARD">高手</option>
       </select>
     </label>
     <label>禁手规则:
@@ -199,7 +199,18 @@ async function joinAsSpectator() {
   setMsg('');
 }
 
-function newGame() {
+async function newGame() {
+  // PVP对局中离开 = 认输
+  if (state && state.gameMode === 'PVP' && state.phase === 'PLAYING'
+      && myRole && myRole !== 'SPECTATOR') {
+    if (!confirm('对局中离开将视为认输，确定要离开吗？')) return;
+    try {
+      await fetch('/api/leave', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({token:myToken})
+      });
+    } catch(e) {}
+  }
   myToken = null; myRole = null; prevPhase = null; scoreHandled = false;
   showBoard(false); showOnly('lobby');
   setMsg('');
@@ -289,10 +300,21 @@ function updateUI() {
   if (state.steps > 0) infoText += '  第' + state.steps + '手';
   info.textContent = infoText;
 
-  // 新游戏按钮：只对参与对局的玩家显示，观战者不显示
+  // 新游戏按钮：根据模式调整文字和可见性
   const newGameBtn = document.getElementById('new-game-btn');
   if (newGameBtn) {
-    newGameBtn.style.display = (myRole === 'SPECTATOR') ? 'none' : 'inline-block';
+    if (state.gameMode === 'AUTO') {
+      // AUTO模式：观战者也能看到"离开"按钮
+      newGameBtn.textContent = '离开';
+      newGameBtn.style.display = 'inline-block';
+    } else if (state.gameMode === 'PVP' && state.phase !== 'OVER') {
+      // PVP对局中：显示"离开"按钮（离开=认输）
+      newGameBtn.textContent = '离开';
+      newGameBtn.style.display = (myRole === 'SPECTATOR') ? 'none' : 'inline-block';
+    } else {
+      newGameBtn.textContent = '新游戏';
+      newGameBtn.style.display = (myRole === 'SPECTATOR') ? 'none' : 'inline-block';
+    }
   }
 
   // 阶段状态栏

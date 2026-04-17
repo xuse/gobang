@@ -27,7 +27,7 @@ mvn test "-Dtest=AIBenchmarkTest#smartSearch_vs_Default_asBlack"
 # Package into JAR
 mvn package
 
-# Run the GUI game
+# Run the Swing GUI game
 java -cp target/classes GobangGame
 
 # Run the console game
@@ -35,10 +35,21 @@ java -cp target/classes ChessConsole
 ```
 
 ## AI Configuration
-AI classes are configured in `src/main/resources/ai.properties`. Set `black` and `white` to any class implementing the `AI` interface. Available implementations: `AI$Default`, `SmartEvalAI`, `SmartSearchAI`. Set `print=true` to enable move logging to stdout.
+AI classes are configured in `src/main/resources/ai.properties`. Set `black` and `white` to any class implementing the `AI` interface. Available implementations: `RandomAI`, `AI$Default`, `SmartEvalAI`, `SmartSearchAI`. Set `print=true` to enable move logging to stdout.
+
+Difficulty levels are defined in `Level.java` enum: BEGINNER → RandomAI, EASY → AI.Default, NORMAL → SmartEvalAI, HARD → SmartSearchAI.
 
 ## Key Libraries / APIs Used
-- `javax.swing` / `java.awt` — GUI rendering and event handling
+- `javax.swing` / `java.awt` — Swing desktop GUI rendering and event handling
+- `com.sun.net.httpserver` — embedded HTTP server for web mode (JDK built-in)
 - `java.io.Serializable` / `ObjectOutputStream` — game state persistence
 - `java.util.Properties` — AI configuration loading
 - `java.lang.reflect.Constructor` — reflective AI class instantiation
+- `javax.sound.sampled` — programmatic sound synthesis (no audio files)
+
+## Web Frontend
+- Single HTML file: `src/main/resources/web/index.html`
+- Inline CSS + vanilla JavaScript, no build tools or frameworks
+- Canvas-based board rendering
+- SSE (`EventSource`) for real-time state updates
+- REST API calls via `fetch()`

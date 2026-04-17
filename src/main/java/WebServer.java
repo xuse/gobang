@@ -52,9 +52,6 @@ public class WebServer {
 	// SSE客户端列表
 	private final List<SseClient> sseClients = new CopyOnWriteArrayList<>();
 
-	// AI难度（与Swing菜单同步）
-	private Class<? extends AI> aiClass = SmartSearchAI.class;
-
 	public WebServer(Chess chess, Runnable repaintCallback) {
 		this.chess = chess;
 		this.repaintCallback = repaintCallback;
@@ -72,6 +69,7 @@ public class WebServer {
 		server.createContext("/api/join", new JoinHandler());
 		server.createContext("/api/events", new SseHandler());
 		server.createContext("/api/start", new StartHandler());
+		server.createContext("/api/leave", new LeaveHandler());
 		server.createContext("/api/ranking", new RankingHandler());
 		server.setExecutor(null);
 		server.start();
@@ -324,6 +322,55 @@ public class WebServer {
 				resp.append('}');
 				respond(ex, 200, "application/json", resp.toString());
 			}
+		}
+	}
+
+	/**
+	 * POST /api/leave — PVP对局中离开（认输）
+	 * body: {"token":"xxx"}
+	 * 离开方判负，对手获胜
+	 */
+	class LeaveHandler implements HttpHandler {
+		@Override
+		public void handle(HttpExchange ex) throws IOException {
+			if ("OPTIONS".equals(ex.getRequestMethod())) {
+				ex.getResponseHeaders().set("Access-Control-Allow-Origin", "*");
+				ex.getResponseHeaders().set("Access-Control-Allow-Headers", "Content-Type");
+				ex.sendResponseHeaders(204, -1);
+				return;
+			}
+			if (!"POST".equals(ex.getRequestMethod())) {
+				respond(ex, 405, "application/json", "{\"error\":\"Method not allowed\"}");
+				return;
+			}
+			String body = readBody(ex);
+			String token = extractJsonString(body, "token");
+			if (token == null) {
+				respond(ex, 400, "application/json", "{\"error\":\"缺少token\"}");
+				return;
+			}
+			synchronized (WebServer.this) {
+				if (gameMode != GameMode.PVP || phase != Phase.PLAYING) {
+					respond(ex, 400, "application/json", "{\"error\":\"当前不在PVP对局中\"}");
+					return;
+				}
+				String role = tokenToRole.get(token);
+				if (role == null || "SPECTATOR".equals(role)) {
+					respond(ex, 403, "application/json", "{\"error\":\"无权操作\"}");
+					return;
+				}
+				// 离开方判负，对手获胜
+				if ("BLACK".equals(role)) {
+					chess.winner = Player.WHITE;
+				} else {
+					chess.winner = Player.BLACK;
+				}
+				chess.next = null;
+				phase = Phase.OVER;
+				broadcastState();
+				if (repaintCallback != null) repaintCallback.run();
+			}
+			respond(ex, 200, "application/json", "{\"ok\":true}");
 		}
 	}
 
