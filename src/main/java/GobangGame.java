@@ -354,20 +354,20 @@ public class GobangGame {
 			java.util.List<Ranking.Record> list = GobangGame.ranking.getRecords();
 			StringBuilder sb = new StringBuilder();
 			sb.append("<html><body style='font-family:微软雅黑; margin:6px;'>");
-			sb.append("<div style='text-align:center; font-size:15px; font-weight:bold; padding:4px 0 8px 0'>🏆 人机对局排行榜</div>");
+			sb.append("<div style='text-align:center; font-size:14px; font-weight:bold; padding:4px 0 8px 0'>🏆 人机对局排行榜</div>");
 			if (list.isEmpty()) {
 				sb.append("<p style='text-align:center;color:gray'>暂无记录，赢一局人机对局即可上榜</p>");
 			} else {
 				sb.append("<table border='0' cellpadding='5' cellspacing='0' width='100%'>");
-				sb.append("<tr style='background:#4a4a4a;color:#fff;font-size:12px'>");
-				sb.append("<th width='48'>名次</th><th>玩家</th><th width='50'>得分</th>");
-				sb.append("<th width='45'>难度</th><th width='40'>执子</th><th width='40'>步数</th><th width='35'>禁手</th></tr>");
+				sb.append("<tr style='background:#4a4a4a;color:#fff;font-size:11px'>");
+				sb.append("<th width='45'>名次</th><th>玩家</th><th width='50'>得分</th>");
+				sb.append("<th width='45'>难度</th><th width='40'>执子</th><th width='40'>步数</th><th width='38'>禁手</th></tr>");
 				for (int i = 0; i < list.size(); i++) {
 					Ranking.Record r = list.get(i);
 					String bg = i < 3 ? "#fff8e1" : (i % 2 == 0) ? "#f8f8f8" : "#eeeeee";
 					String medal = i == 0 ? "🥇" : i == 1 ? "🥈" : i == 2 ? "🥉" : String.valueOf(i + 1);
 					String colorStr = "BLACK".equals(r.color) ? "●黑" : "○白";
-					String scoreStyle = i < 3 ? "font-size:13px;color:#c62828" : "font-size:12px";
+					String scoreStyle = i < 3 ? "font-size:11px;color:#c62828" : "font-size:10px";
 					sb.append("<tr style='background:").append(bg).append(";font-size:12px'>");
 					sb.append("<td align='center'>").append(medal).append("</td>");
 					sb.append("<td>").append(r.name).append("</td>");
@@ -386,9 +386,9 @@ public class GobangGame {
 			editorPane.setBackground(Color.WHITE);
 			javax.swing.JScrollPane scroll = new javax.swing.JScrollPane(editorPane);
 			// 根据记录数动态调整高度，最多显示到满榜
-			int rowH = 24;
-			int headerH = 70;
-			int contentH = headerH + Math.min(list.size(), 20) * rowH;
+			int rowH = 32;
+			int headerH = 74;
+			int contentH = headerH + Math.min(list.size(), 10) * rowH;
 			int height = Math.min(contentH + 10, 560);
 			scroll.setPreferredSize(new java.awt.Dimension(420, height));
 			scroll.setBorder(javax.swing.BorderFactory.createLineBorder(new Color(200, 200, 200)));

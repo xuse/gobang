@@ -42,7 +42,7 @@ public class Ranking {
 		}
 	}
 
-	private static final int MAX_RECORDS = 20;
+	private static final int MAX_RECORDS = 10;
 	private static final Path RANKING_FILE;
 	static {
 		Path dir = Paths.get(System.getProperty("user.home"), ".gobang");
