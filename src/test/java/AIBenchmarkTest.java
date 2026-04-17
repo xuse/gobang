@@ -95,6 +95,11 @@ public class AIBenchmarkTest {
 		runBenchmark("SmartSearch(黑) vs SmartSearch(白)", SmartSearchAI.class, SmartSearchAI.class, MINIMAX_GAMES);
 	}
 
+	@Test
+	void beginner_vs_Default() {
+		runBenchmark("Begin(黑) vs Default(白)", AI.Beginner.class, AI.Default.class, MINIMAX_GAMES);
+		runBenchmark("Default(黑) vs Begin(白)", AI.Default.class, AI.Beginner.class, MINIMAX_GAMES);
+	}
 
 	// ========== 结果封装 ==========
 

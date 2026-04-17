@@ -1,6 +1,7 @@
 import java.awt.Point;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Random;
 
 public interface AI {
 	Point compute();
@@ -83,6 +84,72 @@ public interface AI {
 					}
 				}
 			return (maxComputerGrades > maxPlayerGrades) ? Util.random(maxAttPoints) : Util.random(maxDefPoints);
+		}
+	}
+	class Beginner extends Default {
+		private final Random rng = new Random();
+
+		public Beginner(Chess chess) {
+			super(chess);
+		}
+
+		@Override
+		protected Point selectMove(int[][] board, int[][] atkGrades, int[][] defGrades) {
+			int W = chess.width, H = chess.height;
+
+			// 收集候选点和综合分
+			List<Point> candidates = new ArrayList<>();
+			List<Integer> scores = new ArrayList<>();
+			for (int i = 0; i < W; i++) {
+				for (int j = 0; j < H; j++) {
+					if (board[i][j] != 0) continue;
+					int score = Math.max(atkGrades[i][j], defGrades[i][j]);
+					if (score <= 0) continue;
+					candidates.add(new Point(i, j));
+					scores.add(score);
+				}
+			}
+
+			if (candidates.isEmpty()) {
+				return super.selectMove(board, atkGrades, defGrades);
+			}
+
+			// 冲四必杀/必防（分数>=400）：直接走最优，不犯错
+			int maxScore = 0;
+			for (int s : scores) if (s > maxScore) maxScore = s;
+			if (maxScore >= 410) {
+				List<Point> urgent = new ArrayList<>();
+				for (int i = 0; i < candidates.size(); i++) {
+					if (scores.get(i) == maxScore) urgent.add(candidates.get(i));
+				}
+				return Util.random(urgent);
+			}
+
+			// 按分数降序排序
+			int n = candidates.size();
+			for (int i = 0; i < n - 1; i++) {
+				int best = i;
+				for (int j = i + 1; j < n; j++) {
+					if (scores.get(j) > scores.get(best)) best = j;
+				}
+				if (best != i) {
+					Point tp = candidates.get(i); candidates.set(i, candidates.get(best)); candidates.set(best, tp);
+					int ts = scores.get(i); scores.set(i, scores.get(best)); scores.set(best, ts);
+				}
+			}
+
+			// 50%选最优，50%从前5个随机
+			int pick = Math.min(n, 5);
+			if (rng.nextInt(100) < 50) {
+				int topScore = scores.get(0);
+				List<Point> tops = new ArrayList<>();
+				for (int i = 0; i < pick; i++) {
+					if (scores.get(i) == topScore) tops.add(candidates.get(i));
+				}
+				return Util.random(tops);
+			} else {
+				return candidates.get(rng.nextInt(pick));
+			}
 		}
 	}
 }

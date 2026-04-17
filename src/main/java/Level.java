@@ -1,9 +1,9 @@
 
 public enum Level {
-	BEGINNER("入门",RandomAI.class),
-	EASY("简单",AI.Default.class),
-	NORMAL("普通",SmartEvalAI.class),
-	HARD("困难",SmartSearchAI.class),
+	BEGINNER("初学者",AI.Beginner.class),
+	EASY("入门",AI.Default.class),
+	NORMAL("进阶",SmartEvalAI.class),
+	HARD("高手",SmartSearchAI.class),
 	;
 	public final String name;
 	public final Class<? extends AI> value;
